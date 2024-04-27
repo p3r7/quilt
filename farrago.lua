@@ -109,6 +109,18 @@ end
 
 
 -- -------------------------------------------------------------------------
+-- controls
+
+function enc(n, d)
+  local s = math.abs(d) / d
+  if n == 1 then
+    params:set("mod", params:get("mod") + s)
+  elseif n == 2 then
+    params:set("sync_ratio", params:get("sync_ratio") + s)
+  end
+end
+
+-- -------------------------------------------------------------------------
 -- screen
 
 -- TODO: improve
