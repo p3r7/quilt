@@ -153,118 +153,65 @@ function key(n, v)
 end
 
 
+-- -------------------------------------------------------------------------
+-- waveforms
+
+function nsin(x)
+  return math.sin(x * 2 * math.pi)
+end
+
+function nsaw(x)
+  return (1 - (x + 0.25) % 1) * 2 - 1
+end
+
+function ntri(x)
+  return math.abs((x * 2 - 0.5) % 2 - 1) * 2 - 1
+end
+
+function nsqr(x)
+  local square = math.abs(x * 2 % 2 - 1) - 0.5
+  square = square > 0 and 0.5 or math.floor(square) * 0.5
+  return square
+end
+
+function nwave(waveshape, x)
+  local wave_map = {
+    ["SIN"] = nsin,
+    ["SAW"] = nsaw,
+    ["TRI"] = ntri,
+    ["SQR"] = nsqr,
+  }
+  return wave_map[waveshape](x)
+end
+
 
 -- -------------------------------------------------------------------------
 -- screen
 
-function draw_sin(x, w, y, a, sign, dir, segment, nb_segments)
-  local half_wave_w = w * nb_segments
-  local w_offset = util.linlin(1, nb_segments+1, 0, half_wave_w, segment)
-
-  local x0 = x
-  local xn = x0 + dir * half_wave_w
-  local x1 = x0 + dir * w_offset
-  local x2 = x1 + dir * w
-
-  -- print("--------------")
-  -- print(segment .. "/" .. nb_segments .. ": " .. x0 .." .. " .. xn .. ", " .. x .. " -> " .. x1 .." .. " .. x2)
-  -- print("w="..half_wave_w.." -> "..w)
-
-  -- screen.move(x1, y)
-  for i=x1,x2,dir do
-    -- print("a="..linlin(x0, xn, 0, math.pi, i))
-    screen.line(i, y + math.sin(linlin(x0, xn, 0, math.pi, i)) * a * sign * dir)
-  end
-end
-
-function draw_saw(x, w, y, a, sign, dir, segment, nb_segments)
-  local half_wave_w = w * nb_segments
-  local w_offset = util.linlin(1, nb_segments+1, 0, half_wave_w, segment)
-
-  local x0 = x
-  local xn = x0 + dir * half_wave_w
-  local x1 = x0 + dir * w_offset
-  local x2 = x1 + dir * w
-
-  -- print("--------------")
-  -- print(segment .. "/" .. nb_segments .. ": " .. x0 .." .. " .. xn .. ", " .. x .. " -> " .. x1 .." .. " .. x2)
-  -- print("w="..half_wave_w.." -> "..w)
-
-  local y1 = linlin(x0, xn, y, y + sign * a, x1) * dir
-  local y2 = linlin(x0, xn, y, y + sign * a, x2) * dir
-
-  screen.line(x1, y1)
-  screen.line(x2, y2)
-
-  -- print("("..x1..","..y1..") -> (" ..x2..","..y2..")")
-end
-
-function draw_tri(x, w, y, a, sign, dir, segment, nb_segments)
-  local half_wave_w = w * nb_segments
-  local w_offset = util.linlin(1, nb_segments+1, 0, half_wave_w, segment)
-
-  local x0 = x
-  local xn = x0 + dir * half_wave_w
-  local xh = x0 + dir * half_wave_w/2
-  local x1 = x0 + dir * w_offset
-  local x2 = x1 + dir * w
-
-  print("--------------")
-  print(segment .. "/" .. nb_segments .. ": " .. x0 .. "/" .. xh .. "\\" .. xn .. ", " .. x .. " -> " .. x1 .." .. " .. x2)
-  print("w="..half_wave_w.." -> "..w)
-
-  local y1, y2
-  local crossing = 0
-  if x1 <= xh then
-    y1 = linlin(x0, xh, y, y + sign * a, x1) * dir
-    crossing = -1
-  else
-    y1 = linlin(x0, xh, y + sign * a, y, x1) * dir
-    crossing = 1
-  end
-
-  if x2 >= xh then
-    y2 = linlin(xh, xn, y + sign * a, y, x2) * dir
-    crossing = crossing - 1
-  else
-    y2 = linlin(xh, xn, y, y + sign * a, x2) * dir
-    crossing = crossing + 1
-  end
-
-  screen.line(x1, y1)
-  if crossing then
-    local yh = y+(sign * a)
-    print("("..x1..","..y1..") -> ("..xh..","..yh..") -> ("..x2..","..y2..")")
-    screen.line(xh, yh)
-  else
-    print("("..x1..","..y1..") -> ("..x2..","..y2..")")
-  end
-  screen.line(x2, y2)
-
-end
-
-function draw_sqr(x1, w, y, a, sign, dir, segment, nb_segments)
-  local x2 = x1 + dir * w
-  screen.move(x1, y)
-  screen.line(x1, y+(sign * a))
-  screen.line(x2, y+(sign * a))
-  screen.line(x2, y)
-end
-
 function draw_wave(waveshape, x, w, y, a, sign, dir, segment, nb_segments)
   if dir == nil then
     dir = 1
-  end
-  if waveshape == "SIN" then
-    draw_sin(x, w, y, a, sign, dir, segment, nb_segments)
-  elseif waveshape == "TRI" then
-    draw_tri(x, w, y, a, sign, dir, segment, nb_segments)
-  elseif waveshape == "SAW" then
-    draw_saw(x, w, y, a, sign, dir, segment, nb_segments)
-  elseif waveshape == "SQR" then
-    draw_sqr(x, w, y, a, sign, dir, segment, nb_segments)
-  end
 end
+  if segment == nil then
+    segment = 1
+  end
+  if nb_segments == nil then
+    nb_segments = 1
+  end
+
+  local half_wave_w = w * nb_segments
+  local w_offset = util.linlin(1, nb_segments+1, 0, half_wave_w, segment)
+
+  local x0 = x
+  local xn = x0 + dir * half_wave_w
+  local x1 = x0 + dir * w_offset
+  local x2 = x1 + dir * w
+
+  for i=x1,x2,dir do
+    local nx = linlin(x0, xn, 0, 1/2, i)
+    screen.line(i, y + nwave(waveshape, nx) * a * sign * dir)
+  end
+  end
 
 function draw_mod_wave(x, w, y, a, sign, dir)
   screen.level(5)
