@@ -205,13 +205,13 @@ function draw_tri(x, w, y, a, sign, dir, segment, nb_segments)
 
   local x0 = x
   local xn = x0 + dir * half_wave_w
-  local xh = x0 + (xn-x0)/2
+  local xh = x0 + dir * half_wave_w/2
   local x1 = x0 + dir * w_offset
   local x2 = x1 + dir * w
 
-  -- print("--------------")
-  -- print(segment .. "/" .. nb_segments .. ": " .. x0 .. "/" .. xh .. "\\" .. xn .. ", " .. x .. " -> " .. x1 .." .. " .. x2)
-  -- print("w="..half_wave_w.." -> "..w)
+  print("--------------")
+  print(segment .. "/" .. nb_segments .. ": " .. x0 .. "/" .. xh .. "\\" .. xn .. ", " .. x .. " -> " .. x1 .." .. " .. x2)
+  print("w="..half_wave_w.." -> "..w)
 
   local y1, y2
   local crossing = 0
@@ -223,21 +223,24 @@ function draw_tri(x, w, y, a, sign, dir, segment, nb_segments)
     crossing = 1
   end
 
-  if x2 <= xh then
-    y2 = linlin(xh, xn, y, y + sign * a, x2) * dir
+  if x2 >= xh then
+    y2 = linlin(xh, xn, y + sign * a, y, x2) * dir
     crossing = crossing - 1
   else
-    y2 = linlin(xh, xn, y + sign * a, y, x2) * dir
+    y2 = linlin(xh, xn, y, y + sign * a, x2) * dir
     crossing = crossing + 1
   end
 
   screen.line(x1, y1)
   if crossing then
-    screen.line((x0 + xn)/2, y+(sign * a))
+    local yh = y+(sign * a)
+    print("("..x1..","..y1..") -> ("..xh..","..yh..") -> ("..x2..","..y2..")")
+    screen.line(xh, yh)
+  else
+    print("("..x1..","..y1..") -> ("..x2..","..y2..")")
   end
   screen.line(x2, y2)
 
-  -- print("("..x1..","..y1..") -> (" ..x2..","..y2..")")
 end
 
 function draw_sqr(x1, w, y, a, sign, dir, segment, nb_segments)
