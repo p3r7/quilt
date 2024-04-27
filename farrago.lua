@@ -191,7 +191,7 @@ end
 function draw_wave(waveshape, x, w, y, a, sign, dir, segment, nb_segments)
   if dir == nil then
     dir = 1
-end
+  end
   if segment == nil then
     segment = 1
   end
@@ -211,7 +211,7 @@ end
     local nx = linlin(x0, xn, 0, 1/2, i)
     screen.line(i, y + nwave(waveshape, nx) * a * sign * dir)
   end
-  end
+end
 
 function draw_mod_wave(x, w, y, a, sign, dir)
   screen.level(5)
