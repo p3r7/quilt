@@ -123,9 +123,9 @@ end
 -- -------------------------------------------------------------------------
 -- screen
 
-function draw_sin(x, w, y, a, sign, dir, segment, nb_semgents)
-  local half_wave_w = w * nb_semgents
-  local w_offset = util.linlin(1, nb_semgents+1, 0, half_wave_w, segment)
+function draw_sin(x, w, y, a, sign, dir, segment, nb_segments)
+  local half_wave_w = w * nb_segments
+  local w_offset = util.linlin(1, nb_segments+1, 0, half_wave_w, segment)
 
   local x1, x2
   x0 = x
@@ -134,30 +134,31 @@ function draw_sin(x, w, y, a, sign, dir, segment, nb_semgents)
   x2 = x1 + dir * w
 
   -- print("--------------")
-  -- print(x0 .." .. " .. xn .. " -> " .. x1 .." .. " .. x2)
+  -- print(segment .. "/" .. nb_segments .. ": " .. x0 .." .. " .. xn .. ", " .. x .. " -> " .. x1 .." .. " .. x2)
+  -- print("w="..half_wave_w.." -> "..w)
 
   -- screen.move(x1, y)
   for i=x1,x2,dir do
-    print("a="..linlin(x0, xn, 0, math.pi, i))
+    -- print("a="..linlin(x0, xn, 0, math.pi, i))
     screen.line(i, y + math.sin(linlin(x0, xn, 0, math.pi, i)) * a * sign * dir)
   end
 end
 
-function draw_saw(x1, w, y, a, sign, dir, segment, nb_semgents)
+function draw_saw(x1, w, y, a, sign, dir, segment, nb_segments)
   local x2 = x1 + dir * w
   screen.move(x1, y)
   screen.line(x2, y+(sign * a))
   screen.line(x2, y)
 end
 
-function draw_tri(x1, w, y, a, sign, dir, segment, nb_semgents)
+function draw_tri(x1, w, y, a, sign, dir, segment, nb_segments)
   local x2 = x1 + dir * w
   screen.move(x1, y)
   screen.line((x1 + x2)/2, y+(sign * a))
   screen.line(x2, y)
 end
 
-function draw_sqr(x1, w, y, a, sign, dir, segment, nb_semgents)
+function draw_sqr(x1, w, y, a, sign, dir, segment, nb_segments)
   local x2 = x1 + dir * w
   screen.move(x1, y)
   screen.line(x1, y+(sign * a))
@@ -165,18 +166,18 @@ function draw_sqr(x1, w, y, a, sign, dir, segment, nb_semgents)
   screen.line(x2, y)
 end
 
-function draw_wave(waveshape, x, w, y, a, sign, dir, segment, nb_semgents)
+function draw_wave(waveshape, x, w, y, a, sign, dir, segment, nb_segments)
   if dir == nil then
     dir = 1
   end
   if waveshape == "SIN" then
-    draw_sin(x, w, y, a, sign, dir, segment, nb_semgents)
+    draw_sin(x, w, y, a, sign, dir, segment, nb_segments)
   elseif waveshape == "TRI" then
-    draw_tri(x, w, y, a, sign, dir, segment, nb_semgents)
+    draw_tri(x, w, y, a, sign, dir, segment, nb_segments)
   elseif waveshape == "SAW" then
-    draw_saw(x, w, y, a, sign, dir, segment, nb_semgents)
+    draw_saw(x, w, y, a, sign, dir, segment, nb_segments)
   elseif waveshape == "SQR" then
-    draw_sqr(x, w, y, a, sign, dir, segment, nb_semgents)
+    draw_sqr(x, w, y, a, sign, dir, segment, nb_segments)
   end
 end
 
