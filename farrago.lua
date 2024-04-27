@@ -165,11 +165,38 @@ function draw_saw(x, w, y, a, sign, dir, segment, nb_segments)
   -- print("("..x1..","..y1..") -> (" ..x2..","..y2..")")
 end
 
-function draw_tri(x1, w, y, a, sign, dir, segment, nb_segments)
+function draw_tri(x, w, y, a, sign, dir, segment, nb_segments)
+  local half_wave_w = w * nb_segments
+  local w_offset = util.linlin(1, nb_segments+1, 0, half_wave_w, segment)
+
+  local x0 = x
+  local xn = x0 + dir * half_wave_w
+  local x1 = x0 + dir * w_offset
   local x2 = x1 + dir * w
-  screen.move(x1, y)
-  screen.line((x1 + x2)/2, y+(sign * a))
-  screen.line(x2, y)
+
+  local y1
+  local crossing = 0
+  if x1 <= (xn-x0)/2 then
+    y1 = linlin(x0, xn/2, y, y + sign * a, x1) * dir
+    crossing = -1
+  else
+    y1 = linlin(x0, xn/2, y + sign * a, y, x1) * dir
+    crossing = 1
+  end
+
+  if x2 <= (xn-x0)/2 then
+    y2 = linlin(xn/2, xn, y, y + sign * a, x2) * dir
+    crossing = crossing - 1
+  else
+    y2 = linlin(xn/2, xn, y + sign * a, y, x2) * dir
+    crossing = crossing + 1
+  end
+
+  screen.line(x1, y1)
+  if crossing then
+    screen.line((x0 + xn)/2, y+(sign * a))
+  end
+  screen.line(x2, y2)
 end
 
 function draw_sqr(x1, w, y, a, sign, dir, segment, nb_segments)
