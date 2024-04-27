@@ -123,47 +123,109 @@ end
 -- -------------------------------------------------------------------------
 -- screen
 
--- TODO: improve
-function draw_sin(x1, w, y, a, sign)
-  local x2 = x1 + w
-  screen.move(x1, y)
+function draw_sin(x, w, y, a, sign, dir, segment, nb_semgents)
+  local half_wave_w = w * nb_semgents
+  local w_offset = util.linlin(1, nb_semgents, 0, half_wave_w, segment)
+
+  local x1, x2
+  if dir >= 0 then
+    x0 = x
+    xn = x0 + half_wave_w
+    x1 = x0 + w_offset
+    x2 = x1 + w
+  else
+    -- REVIEW: bad
+    xn = x
+    x0 = xn - half_wave_w
+    x2 = x - w_offset
+    x1 = x2 - w
+  end
+
+  -- screen.move(x1, y)
   for i=x1,x2 do
-    screen.line(i, y + math.sin(util.linlin(x1, x2, 0, math.pi, i)) * a * sign)
+    screen.line(i, y + math.sin(util.linlin(x0, xn, 0, math.pi, i)) * a * sign)
   end
 end
 
-function draw_tri(x1, w, y, a, sign)
-  local x2 = x1 + w
-  screen.move(x1, y)
-  screen.line((x1 + x2)/2, y+(sign * a))
-  screen.line(x2, y)
-end
-
-function draw_saw(x1, w, y, a, sign)
-  local x2 = x1 + w
+function draw_saw(x1, w, y, a, sign, dir, segment, nb_semgents)
+  local x2 = x1 + dir * w
   screen.move(x1, y)
   screen.line(x2, y+(sign * a))
   screen.line(x2, y)
 end
 
-function draw_sqr(x1, w, y, a, sign)
-  local x2 = x1 + w
+function draw_tri(x1, w, y, a, sign, dir, segment, nb_semgents)
+  local x2 = x1 + dir * w
+  screen.move(x1, y)
+  screen.line((x1 + x2)/2, y+(sign * a))
+  screen.line(x2, y)
+end
+
+function draw_sqr(x1, w, y, a, sign, dir, segment, nb_semgents)
+  local x2 = x1 + dir * w
   screen.move(x1, y)
   screen.line(x1, y+(sign * a))
   screen.line(x2, y+(sign * a))
   screen.line(x2, y)
 end
 
-function draw_wave(waveshape, x, w, y, a, sign)
-  if waveshape == "SIN" then
-    draw_sin(x, w, y, a, sign)
-  elseif waveshape == "TRI" then
-    draw_tri(x, w, y, a, sign)
-  elseif waveshape == "SAW" then
-    draw_saw(x, w, y, a, sign)
-  elseif waveshape == "SQR" then
-    draw_sqr(x, w, y, a, sign)
+function draw_wave(waveshape, x, w, y, a, sign, dir, segment, nb_semgents)
+  if dir == nil then
+    dir = 1
   end
+  if waveshape == "SIN" then
+    draw_sin(x, w, y, a, sign, dir, segment, nb_semgents)
+  elseif waveshape == "TRI" then
+    draw_tri(x, w, y, a, sign, dir, segment, nb_semgents)
+  elseif waveshape == "SAW" then
+    draw_saw(x, w, y, a, sign, dir, segment, nb_semgents)
+  elseif waveshape == "SQR" then
+    draw_sqr(x, w, y, a, sign, dir, segment, nb_semgents)
+  end
+end
+
+function draw_mod_wave(x, w, y, a, sign, dir)
+  screen.level(5)
+  if dir == nil then
+    dir = 1
+  end
+  local mod = params:get("sync_ratio")
+  w = util.round(w/mod)
+  a = util.round(a/mod)
+  screen.move(x, y)
+  for i=1,mod do
+    screen.line(x + dir * (i-1) * w, y + i * sign * a)
+    screen.line(x + dir * i * w, y + i * sign * a)
+  end
+  screen.stroke()
+  screen.level(15)
+end
+
+function draw_poles(x, y, radius, nb_poles)
+  screen.move(x + radius, y)
+  screen.circle(x, y, radius)
+  screen.stroke()
+
+  for i=1, nb_poles do
+    screen.move(x, y)
+    local angle = (i-1) * 2 * math.pi / nb_poles
+    local angle2 = angle/(2 * math.pi)
+    screen.line(x + radius * cos(angle2) * -1, y + radius * sin(angle2))
+    screen.stroke()
+  end
+end
+
+function draw_scope_grid(screen_w, screen_h)
+  screen.level(5)
+  screen.move(screen_w/2, 0)
+  screen.line(screen_w/2, screen_h)
+  screen.stroke()
+
+  screen.move(0, screen_h/2)
+  screen.line(screen_w, screen_h/2)
+  screen.stroke()
+
+  screen.level(15)
 end
 
 function redraw()
@@ -171,19 +233,59 @@ function redraw()
 
   screen.clear()
 
-  local unique_wave_segments = params:get("mod")
-  local wave_segments = unique_wave_segments * 2
-  local segment_w = screen_w/wave_segments
+  -- draw_scope_grid(screen_w, screen_h)
+
+  local sync_ratio = params:get("sync_ratio") -- nb of sub-segments
+  local half_waves = params:get("mod")
+  local half_wave_w = util.round(screen_w/(half_waves*2))
+  local segment_w = half_wave_w / sync_ratio
   local abscissa = screen_h/2
-  local a = abscissa * 3/4
+  local a = abscissa * 3/6
 
   local sign = 1
-  for i=1,wave_segments do
-    local waveshape = params:string("index"..mod1(i, #WAVESHAPES))
-    draw_wave(waveshape, (i-1) * segment_w, segment_w, abscissa, a, sign)
+  local x_offset = screen_w/2
+
+  -- -- mod wave
+  -- for i=1,half_waves do
+  --   draw_mod_wave(x_offset + (i-1) * half_wave_w, half_wave_w, abscissa, a, sign)
+  --   sign = sign * -1
+  -- end
+
+  -- for i=1,half_waves do
+  --   draw_mod_wave(x_offset - (i-1) * half_wave_w, half_wave_w, abscissa, a, -sign, -1)
+  --   sign = sign * -1
+  -- end
+
+  -- signal wave
+  sign = 1
+  screen.move(x_offset, abscissa)
+  for i=1,half_waves do
+    for j=1,sync_ratio do
+      local wi = math.floor(mod1(i * j, #WAVESHAPES))
+      local waveshape = params:string("index"..wi)
+      draw_wave(waveshape, x_offset + (i-1) * half_wave_w, segment_w, abscissa, a, sign, 1, j, sync_ratio)
+    end
     sign = sign * -1
   end
   screen.stroke()
+
+  sign = 1
+  screen.move(x_offset, abscissa)
+  for i=1,half_waves do
+    for j=1,sync_ratio do
+      local wi = math.floor(mod1(i * j, #WAVESHAPES))
+      local waveshape = params:string("index"..wi)
+      draw_wave(waveshape, x_offset - (i-1) * half_wave_w, segment_w, abscissa, a, -sign, -1, j, sync_ratio)
+      sign = sign * -1
+    end
+  end
+  screen.stroke()
+
+  -- poles
+
+  local p_pargin = 1
+  local p_radius = 10
+  draw_poles(screen_w-(p_radius+p_pargin), p_radius+p_pargin, p_radius, params:get("mod"))
 
   screen.update()
   screen_dirty = false
