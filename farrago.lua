@@ -53,6 +53,18 @@ function init()
 
   local pct_control_on = controlspec.new(0, 1, "lin", 0, 1.0, "")
 
+  params:add_trigger("random", "random")
+  params:set_action("random",
+                    function(v)
+                      print("shuffling wave")
+
+                      for i=1,4 do
+                        params:set("index"..i, math.random(#WAVESHAPES))
+                      end
+                      screen_dirty=true
+  end)
+
+
   params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default = 3, action = function(v)
                engine.mod(v)
                screen_dirty = true
@@ -119,6 +131,28 @@ function enc(n, d)
     params:set("sync_ratio", params:get("sync_ratio") + s)
   end
 end
+
+local k1 = false
+local k2 = false
+local k3 = false
+
+function key(n, v)
+  if n == 1 then
+    k1 = (v == 1)
+  end
+  if n == 2 then
+    k2 = (v == 1)
+  end
+  if n == 3 then
+    k3 = (v == 1)
+  end
+
+  if k1 and k3 then
+    params:set("random", 1)
+  end
+end
+
+
 
 -- -------------------------------------------------------------------------
 -- screen
