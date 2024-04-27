@@ -128,22 +128,18 @@ function draw_sin(x, w, y, a, sign, dir, segment, nb_semgents)
   local w_offset = util.linlin(1, nb_semgents, 0, half_wave_w, segment)
 
   local x1, x2
-  if dir >= 0 then
     x0 = x
-    xn = x0 + half_wave_w
-    x1 = x0 + w_offset
-    x2 = x1 + w
-  else
-    -- REVIEW: bad
-    xn = x
-    x0 = xn - half_wave_w
-    x2 = x - w_offset
-    x1 = x2 - w
-  end
+  xn = x0 + dir * half_wave_w
+  x1 = x0 + dir * w_offset
+  x2 = x1 + dir * w
+
+  -- print("--------------")
+  -- print(x0 .." .. " .. xn .. " -> " .. x1 .." .. " .. x2)
 
   -- screen.move(x1, y)
-  for i=x1,x2 do
-    screen.line(i, y + math.sin(util.linlin(x0, xn, 0, math.pi, i)) * a * sign)
+  for i=x1,x2,dir do
+    print("a="..linlin(x0, xn, 0, math.pi, i))
+    screen.line(i, y + math.sin(linlin(x0, xn, 0, math.pi, i)) * a * sign * dir)
   end
 end
 
