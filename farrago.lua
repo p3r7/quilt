@@ -125,7 +125,7 @@ end
 
 function draw_sin(x, w, y, a, sign, dir, segment, nb_semgents)
   local half_wave_w = w * nb_semgents
-  local w_offset = util.linlin(1, nb_semgents, 0, half_wave_w, segment)
+  local w_offset = util.linlin(1, nb_semgents+1, 0, half_wave_w, segment)
 
   local x1, x2
   x0 = x
