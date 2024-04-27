@@ -53,7 +53,7 @@ function init()
 
   local pct_control_on = controlspec.new(0, 1, "lin", 0, 1.0, "")
 
-  params:add{type = "number", id = "mod", name = "mod", min = 1, max = 10, default = 3, action = function(v)
+  params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default = 3, action = function(v)
                engine.mod(v)
                screen_dirty = true
   end}
