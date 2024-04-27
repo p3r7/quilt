@@ -128,7 +128,7 @@ function draw_sin(x, w, y, a, sign, dir, segment, nb_semgents)
   local w_offset = util.linlin(1, nb_semgents, 0, half_wave_w, segment)
 
   local x1, x2
-    x0 = x
+  x0 = x
   xn = x0 + dir * half_wave_w
   x1 = x0 + dir * w_offset
   x2 = x1 + dir * w
@@ -272,8 +272,8 @@ function redraw()
       local wi = math.floor(mod1(i * j, #WAVESHAPES))
       local waveshape = params:string("index"..wi)
       draw_wave(waveshape, x_offset - (i-1) * half_wave_w, segment_w, abscissa, a, -sign, -1, j, sync_ratio)
-      sign = sign * -1
     end
+    sign = sign * -1
   end
   screen.stroke()
 
