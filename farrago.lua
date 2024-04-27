@@ -143,11 +143,26 @@ function draw_sin(x, w, y, a, sign, dir, segment, nb_segments)
   end
 end
 
-function draw_saw(x1, w, y, a, sign, dir, segment, nb_segments)
+function draw_saw(x, w, y, a, sign, dir, segment, nb_segments)
+  local half_wave_w = w * nb_segments
+  local w_offset = util.linlin(1, nb_segments+1, 0, half_wave_w, segment)
+
+  local x0 = x
+  local xn = x0 + dir * half_wave_w
+  local x1 = x0 + dir * w_offset
   local x2 = x1 + dir * w
-  screen.move(x1, y)
-  screen.line(x2, y+(sign * a))
-  screen.line(x2, y)
+
+  -- print("--------------")
+  -- print(segment .. "/" .. nb_segments .. ": " .. x0 .." .. " .. xn .. ", " .. x .. " -> " .. x1 .." .. " .. x2)
+  -- print("w="..half_wave_w.." -> "..w)
+
+  local y1 = linlin(x0, xn, y, y + sign * a, x1) * dir
+  local y2 = linlin(x0, xn, y, y + sign * a, x2) * dir
+
+  screen.line(x1, y1)
+  screen.line(x2, y2)
+
+  -- print("("..x1..","..y1..") -> (" ..x2..","..y2..")")
 end
 
 function draw_tri(x1, w, y, a, sign, dir, segment, nb_segments)
