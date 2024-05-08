@@ -539,7 +539,7 @@ function redraw()
   local p_pargin = 1
   local p_radius = 10
   draw_poles(screen_w-(p_radius+p_pargin)*(2 + 0.3), p_radius+p_pargin, p_radius, params:get("mod"), params:get("npolar_rot_amount"), rot_angle)
-  draw_poles(screen_w-(p_radius+p_pargin), p_radius+p_pargin, p_radius, params:get("mod"), params:get("npolar_rot_amount_sliced"), rot_angle_sliced)
+  draw_poles(screen_w-(p_radius+p_pargin), p_radius+p_pargin, p_radius, params:get("sync_ratio"), params:get("npolar_rot_amount_sliced"), rot_angle_sliced)
 
   screen.update()
   screen_dirty = false
