@@ -209,6 +209,7 @@ function init()
                       engine.resonance(v)
   end)
 
+  bleached.init(bleached_cc_cb)
 
   clock_redraw = clock.run(function()
       while true do
