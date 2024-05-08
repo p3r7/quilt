@@ -45,6 +45,7 @@ S_LVL_MOD = 2
 screen_dirty = true
 
 rot_angle = 0
+rot_angle_sliced = 0
 
 has_bleached = false
 
@@ -71,19 +72,19 @@ local function bleached_cc_cb(midi_msg)
     end
 
     if row == 1 and pot == 1 then
-      params:set("npolar_rot_amount", util.linlin(0, precision, 0, 1, v))
+      --
     elseif row == 1 and pot == 2 then
-      params:set("npolar_rot_freq", util.linlin(0, precision, 1, 40, v))
+      --
     elseif row == 1 and pot == 3 then
       params:set("cutoff", util.linexp(0, precision, ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval, v))
     elseif row == 2 and pot == 1 then
-      -- params:set("wavetable_pos_shift", util.linlin(0, precision, 0, 1, v))
+      params:set("npolar_rot_amount", util.linlin(0, precision, 0, 1, v))
     elseif row == 2 and pot == 2 then
-      -- params:set("wavetable_length", util.linlin(0, precision, 0, 1, v))
+      params:set("npolar_rot_freq", util.linexp(0, precision, 1, 15000, v))
     elseif row == 2 and pot == 3 then
-      -- params:set("wavetable_fold", util.linlin(0, precision, 0, 1, v))
+      params:set("npolar_rot_amount_sliced", util.linlin(0, precision, 0, 1, v))
     elseif row == 2 and pot == 4 then
-      -- params:set("wave_phase_shift_amount", util.linlin(0, precision, 0, 1, v))
+      params:set("npolar_rot_freq_sliced", util.linexp(0, precision, 1, 15000, v))
     end
   end
 end
@@ -103,13 +104,13 @@ function fmt_percent(param)
   return string.format("%.2f", value * 100) .. "%"
 end
 
-BASE_FREQ = 200
+BASE_FREQ = 440/2
 FREQ = BASE_FREQ
 
 -- PITCH_COMPENSATION_MOD = true
 PITCH_COMPENSATION_MOD = false
 -- PITCH_COMPENSATION_SYNC = false
-PITCH_COMPENSATION_SYNC = true
+PITCH_COMPENSATION_SYNC = false
 
 function init()
 
@@ -119,7 +120,6 @@ function init()
 
   local pct_control_on = controlspec.new(0, 1, "lin", 0, 1.0, "")
   local phase_control = controlspec.new(0, 2 * math.pi, "lin", 0, 0.0, "")
-
 
   params:add_trigger("random", "random")
   params:set_action("random",
@@ -133,7 +133,7 @@ function init()
   end)
 
 
-  params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default = 3, action = function(v)
+  params:add{type = "number", id = "mod", name = "mod", min = 2, max = 31, default = 3, action = function(v)
                engine.mod(v)
 
                local div = 1
@@ -151,7 +151,10 @@ function init()
   end}
 
   params:add{type = "control", id = "npolar_rot_amount", name = "rot amount", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProj}
-  params:add{type = "number", id = "npolar_rot_freq", name = "rot freq", min = 1, max = 40, default = 1, action = engine.npolarRotFreq}
+  params:add{type = "number", id = "npolar_rot_freq", name = "rot freq", min = 1, max = 15000, default = 1, action = engine.npolarRotFreq}
+
+  params:add{type = "control", id = "npolar_rot_amount_sliced", name = "rot amount sliced", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProjSliced}
+  params:add{type = "number", id = "npolar_rot_freq_sliced", name = "rot freq sliced", min = 1, max = 15000, default = 1, action = engine.npolarRotFreqSliced}
 
   params:add{type = "number", id = "sync_ratio", name = "sync_ratio", min = 1, max = 10, default = 1,
              action = function(v)
@@ -212,6 +215,8 @@ function init()
   end)
 
   bleached.init(bleached_cc_cb)
+
+  params:bang()
 
   clock_redraw = clock.run(function()
       while true do
@@ -306,11 +311,18 @@ end
 -- LFOs
 
 function lfo_tick()
-  local tick = (1 / ROT_FPS) * params:get("npolar_rot_freq")
+  local tick = (1 / ROT_FPS) * params:get("npolar_rot_freq") * 2
   rot_angle = rot_angle + tick
   while rot_angle > 1 do
     rot_angle = rot_angle - 1
   end
+
+  local tick_sliced = (1 / ROT_FPS) * params:get("npolar_rot_freq_sliced") * 2
+  rot_angle_sliced = rot_angle_sliced + tick
+  while rot_angle_sliced > 1 do
+    rot_angle_sliced = rot_angle_sliced - 1
+  end
+
   -- print(rot_angle)
   screen_dirty = true
 end
@@ -468,6 +480,7 @@ function redraw()
 
   local sync_ratio = params:get("sync_ratio") -- nb of sub-segments
   local mod = params:get("mod")
+  local mod_sliced = mod * sync_ratio
   local half_waves = mod
   local half_wave_w = util.round(screen_w/(half_waves*2))
   local segment_w = half_wave_w / sync_ratio
@@ -501,7 +514,7 @@ function redraw()
     for j=1,sync_ratio do
       local wi = math.floor(mod1(i * j, #WAVESHAPES))
       local waveshape = params:string("index"..wi)
-      local pole_a = linlin(0, 1, a, amp_for_pole(i, mod, rot_angle, a), params:get("npolar_rot_amount"))
+      local pole_a = a * (linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), params:get("npolar_rot_amount")) * linlin(0, 1, 1, amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1), params:get("npolar_rot_amount_sliced")))
       draw_wave(waveshape, x_offset + (i-1) * half_wave_w, segment_w, abscissa, pole_a, sign, 1, j, sync_ratio)
     end
     sign = sign * -1
@@ -514,7 +527,7 @@ function redraw()
     for j=1,sync_ratio do
       local wi = math.floor(mod1(i * j, #WAVESHAPES))
       local waveshape = params:string("index"..wi)
-      local pole_a = linlin(0, 1, a, -amp_for_pole(i, mod, rot_angle, a, -1), params:get("npolar_rot_amount"))
+      local pole_a = a * (linlin(0, 1, 1, -amp_for_pole(i, mod, rot_angle, 1, -1), params:get("npolar_rot_amount")) * linlin(0, 1, 1, amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1), params:get("npolar_rot_amount_sliced")))
       draw_wave(waveshape, x_offset - (i-1) * half_wave_w, segment_w, abscissa, pole_a, -sign, -1, j, sync_ratio)
     end
     sign = sign * -1
