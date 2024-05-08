@@ -472,16 +472,10 @@ function amp_for_pole(n, mod, rot_angle, a, dir)
   end
 end
 
-NO_CLEAR_COUNT = 0
-
 function redraw()
   local screen_w, screen_h = screen_size()
 
-  if NO_CLEAR_COUNT == 0 or NO_CLEAR_COUNT > 3 then
-    screen.clear()
-    NO_CLEAR_COUNT = 0
-  end
-  -- NO_CLEAR_COUNT = NO_CLEAR_COUNT + 1
+  screen.clear()
 
   local sync_ratio = params:get("sync_ratio") -- nb of sub-segments
   local mod = params:get("mod")
