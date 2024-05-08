@@ -383,7 +383,7 @@ function draw_mod_wave(x, w, y, a, sign, dir)
   screen.level(15)
 end
 
-function draw_poles(x, y, radius, nb_poles)
+function draw_poles(x, y, radius, nb_poles, amount, rot_angle)
   screen.level(0)
   screen.move(x + radius + 2, y)
   screen.circle(x, y, radius + 2)
@@ -396,7 +396,7 @@ function draw_poles(x, y, radius, nb_poles)
 
   for i=1, nb_poles do
 
-    local r2 = radius * linlin(0, 1, 1, amp_for_pole(i, nb_poles, rot_angle, 1, dir), params:get("npolar_rot_amount"))
+    local r2 = radius * linlin(0, 1, 1, amp_for_pole(i, nb_poles, rot_angle, 1, dir), amount)
     r2 = math.abs(r2)
 
     local angle = (i-1) * 2 * math.pi / nb_poles
@@ -538,7 +538,8 @@ function redraw()
 
   local p_pargin = 1
   local p_radius = 10
-  draw_poles(screen_w-(p_radius+p_pargin), p_radius+p_pargin, p_radius, params:get("mod"))
+  draw_poles(screen_w-(p_radius+p_pargin)*(2 + 0.3), p_radius+p_pargin, p_radius, params:get("mod"), params:get("npolar_rot_amount"), rot_angle)
+  draw_poles(screen_w-(p_radius+p_pargin), p_radius+p_pargin, p_radius, params:get("mod"), params:get("npolar_rot_amount_sliced"), rot_angle_sliced)
 
   screen.update()
   screen_dirty = false
