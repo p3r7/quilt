@@ -17,6 +17,8 @@ engine.name = "Farrago"
 -- -------------------------------------------------------------------------
 -- consts
 
+ROT_FPS = 30 -- NB: there is no point in making it faster than FPS
+
 FPS = 15
 if norns.version == "update	231108" then
   FPS = 30
@@ -39,6 +41,7 @@ end
 
 screen_dirty = true
 
+rot_angle = 0
 
 -- -------------------------------------------------------------------------
 -- init
@@ -351,6 +354,27 @@ function draw_scope_grid(screen_w, screen_h)
   screen.level(15)
 end
 
+function amp_for_pole(n, mod, rot_angle, a)
+  -- 0..1
+  local pole_angle = rot_angle + (n-1) * (1/mod)
+  local sign = 1
+  if rot_angle > 0.5 then
+    sign = -1
+  end
+  while pole_angle > 1 do
+    pole_angle = pole_angle - 1
+  end
+
+  if pole_angle < 0.25 then
+    return sign * linlin(0, 0.25, 0, a, pole_angle)
+  elseif pole_angle < 0.5 then
+    return sign * linlin(0.25, 0.5, a, 0, pole_angle)
+  elseif pole_angle < 0.75 then
+    return sign * linlin(0.5, 0.75, 0, a, pole_angle)
+  else
+    return sign * linlin(0.75, 1, a, 0, pole_angle)
+  end
+end
 function redraw()
   local screen_w, screen_h = screen_size()
 
@@ -359,7 +383,8 @@ function redraw()
   -- draw_scope_grid(screen_w, screen_h)
 
   local sync_ratio = params:get("sync_ratio") -- nb of sub-segments
-  local half_waves = params:get("mod")
+  local mod = params:get("mod")
+  local half_waves = mod
   local half_wave_w = util.round(screen_w/(half_waves*2))
   local segment_w = half_wave_w / sync_ratio
   local abscissa = screen_h/2
@@ -386,7 +411,8 @@ function redraw()
     for j=1,sync_ratio do
       local wi = math.floor(mod1(i * j, #WAVESHAPES))
       local waveshape = params:string("index"..wi)
-      draw_wave(waveshape, x_offset + (i-1) * half_wave_w, segment_w, abscissa, a, sign, 1, j, sync_ratio)
+      local pole_a = linlin(0, 1, a, amp_for_pole(i, mod, rot_angle, a), params:get("npolar_rot_amount"))
+      draw_wave(waveshape, x_offset + (i-1) * half_wave_w, segment_w, abscissa, pole_a, sign, 1, j, sync_ratio)
     end
     sign = sign * -1
   end
@@ -398,7 +424,8 @@ function redraw()
     for j=1,sync_ratio do
       local wi = math.floor(mod1(i * j, #WAVESHAPES))
       local waveshape = params:string("index"..wi)
-      draw_wave(waveshape, x_offset - (i-1) * half_wave_w, segment_w, abscissa, a, -sign, -1, j, sync_ratio)
+      local pole_a = linlin(0, 1, a, amp_for_pole(i, mod, rot_angle, a), params:get("npolar_rot_amount"))
+      draw_wave(waveshape, x_offset - (i-1) * half_wave_w, segment_w, abscissa, pole_a, -sign, -1, j, sync_ratio)
     end
     sign = sign * -1
   end
