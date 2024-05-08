@@ -437,16 +437,16 @@ function redraw()
   local sign = 1
   local x_offset = screen_w/2
 
-  -- -- mod wave
-  -- for i=1,half_waves do
-  --   draw_mod_wave(x_offset + (i-1) * half_wave_w, half_wave_w, abscissa, a, sign)
-  --   sign = sign * -1
-  -- end
+  -- mod wave
+  for i=1,half_waves do
+    draw_mod_wave(x_offset + (i-1) * half_wave_w, half_wave_w, abscissa, a, sign)
+    sign = sign * -1
+  end
 
-  -- for i=1,half_waves do
-  --   draw_mod_wave(x_offset - (i-1) * half_wave_w, half_wave_w, abscissa, a, -sign, -1)
-  --   sign = sign * -1
-  -- end
+  for i=1,half_waves do
+    draw_mod_wave(x_offset - (i-1) * half_wave_w, half_wave_w, abscissa, a, -sign, -1)
+    sign = sign * -1
+  end
 
   -- signal wave
   sign = 1
