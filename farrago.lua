@@ -215,6 +215,7 @@ function init()
   end)
 
   bleached.init(bleached_cc_cb)
+  bleached.switch_cc_mode(bleached.M_CC14)
 
   params:bang()
 
@@ -234,6 +235,10 @@ function init()
       end
   end)
 
+end
+
+function cleanup()
+  bleached.switch_cc_mode(bleached.M_CC)
 end
 
 
