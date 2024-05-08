@@ -292,7 +292,7 @@ end
 function nsqr(x)
   x = x + 0.25
   local square = math.abs(x * 2 % 2 - 1) - 0.5
-  square = square > 0 and 0.5 or math.floor(square) * 0.5
+  square = square > 0 and 1 or math.floor(square) * 1
   return square * -1
 end
 
