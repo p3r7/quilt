@@ -161,7 +161,11 @@ function nsin(x)
 end
 
 function nsaw(x)
-  return (1 - (x + 0.25) % 1) * 2 - 1
+  if x < 0 then
+    return linlin(0, 1, 1, -1, -x)
+  end
+  return linlin(0, 1, 1, -1, x)
+  -- return (1 - (x + 0.25) % 1) * 2 - 1
 end
 
 function ntri(x)
@@ -169,9 +173,10 @@ function ntri(x)
 end
 
 function nsqr(x)
+  x = x + 0.25
   local square = math.abs(x * 2 % 2 - 1) - 0.5
   square = square > 0 and 0.5 or math.floor(square) * 0.5
-  return square
+  return square * -1
 end
 
 function nwave(waveshape, x)
@@ -204,12 +209,22 @@ function draw_wave(waveshape, x, w, y, a, sign, dir, segment, nb_segments)
 
   local x0 = x
   local xn = x0 + dir * half_wave_w
+  local xn_pos = x0 + half_wave_w
   local x1 = x0 + dir * w_offset
   local x2 = x1 + dir * w
 
+  -- print("("..x0 ..","..xn..") - ("..x1 ..","..x2..") - "..sign..","..dir)
+
   for i=x1,x2,dir do
-    local nx = linlin(x0, xn, 0, 1/2, i)
-    screen.line(i, y + nwave(waveshape, nx) * a * sign * dir)
+    local startn = 0
+    local endn = 1/2
+    if sign == -1 then
+      local startn = 1/2
+      local endn = 1
+      -- print(linlin(x0, xn, startn, endn, i))
+    end
+    local nx = math.abs(linlin(x0, xn, startn, endn, i))
+    screen.line(i, y + nwave(waveshape, nx) * a * sign * -1)
   end
 end
 
