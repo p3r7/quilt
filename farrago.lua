@@ -527,7 +527,7 @@ function redraw()
     for j=1,sync_ratio do
       local wi = math.floor(mod1(i * j, #WAVESHAPES))
       local waveshape = params:string("index"..wi)
-      local pole_a = a * (linlin(0, 1, 1, -amp_for_pole(i, mod, rot_angle, 1, -1), params:get("npolar_rot_amount")) * linlin(0, 1, 1, amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1), params:get("npolar_rot_amount_sliced")))
+      local pole_a = a * (linlin(0, 1, 1, -amp_for_pole(i, mod, rot_angle, 1, -1), params:get("npolar_rot_amount")) * linlin(0, 1, 1, -amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1, -1), params:get("npolar_rot_amount_sliced")))
       draw_wave(waveshape, x_offset - (i-1) * half_wave_w, segment_w, abscissa, pole_a, -sign, -1, j, sync_ratio)
     end
     sign = sign * -1
