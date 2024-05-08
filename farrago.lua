@@ -9,6 +9,8 @@ local ControlSpec = require "controlspec"
 local Formatters = require "formatters"
 local MusicUtil = require "musicutil"
 
+local bleached = include("lib/bleached")
+
 include("lib/core")
 
 engine.name = "Farrago"
@@ -42,6 +44,49 @@ end
 screen_dirty = true
 
 rot_angle = 0
+
+has_bleached = false
+
+
+-- -------------------------------------------------------------------------
+-- controllers
+
+local function bleached_cc_cb(midi_msg)
+  has_bleached = true
+
+  -- if params:string("auto_bind_controller") == "no" then
+  --   return
+  -- end
+
+  bleached.register_val(midi_msg.cc, midi_msg.val)
+  if bleached.is_final_val_update(midi_msg.cc) then
+    local row = bleached.cc_to_row(midi_msg.cc)
+    local pot = bleached.cc_to_row_pot(midi_msg.cc)
+    local v = bleached.last_val
+
+    local precision = 127
+    if bleached.is_14_bits() then
+      precision = 16383
+    end
+
+    if row == 1 and pot == 1 then
+      params:set("npolar_rot_amount", util.linlin(0, precision, 0, 1, v))
+    elseif row == 1 and pot == 2 then
+      params:set("npolar_rot_freq", util.linlin(0, precision, 1, 40, v))
+    elseif row == 1 and pot == 3 then
+      params:set("cutoff", util.linexp(0, precision, ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval, v))
+    elseif row == 2 and pot == 1 then
+      -- params:set("wavetable_pos_shift", util.linlin(0, precision, 0, 1, v))
+    elseif row == 2 and pot == 2 then
+      -- params:set("wavetable_length", util.linlin(0, precision, 0, 1, v))
+    elseif row == 2 and pot == 3 then
+      -- params:set("wavetable_fold", util.linlin(0, precision, 0, 1, v))
+    elseif row == 2 and pot == 4 then
+      -- params:set("wave_phase_shift_amount", util.linlin(0, precision, 0, 1, v))
+    end
+  end
+end
+
 
 -- -------------------------------------------------------------------------
 -- init
