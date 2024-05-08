@@ -20,9 +20,9 @@ Engine_Farrago : CroneEngine {
 			amp2 = 0.5,
 			amp3 = 0.5,
 			amp4 = 0.5,
-			// ventilator
-			ventInf = 1.0,
-			ventfreq = 10,
+			// npolar projection
+			npolarProj = 1.0,
+			npolarRotFreq = 10,
 			// filter
 			cutoff = 1200,
 			resonance = 0.0;
@@ -35,15 +35,22 @@ Engine_Farrago : CroneEngine {
 			var crossing = LFSaw.ar(freq * syncRatio * 2, iphase: syncPhase, mul: 0.5);
 			var counter = PulseCount.ar(crossing) % mod;
 
+			var modphase = if(mod % 2 == 0, { mod - 1 }, { mod });
+
 			// REVIEW: use wavetable instead?
-			var signal1 = Select.ar(index1, [sin, triangle, saw, square]) * amp1 * SinOsc.kr(ventfreq, 0.0);
-			var signal2 = Select.ar(index2, [sin, triangle, saw, square]) * amp2 * SinOsc.kr(ventfreq, 2pi / mod);
-			var signal3 = Select.ar(index3, [sin, triangle, saw, square]) * amp3 * SinOsc.kr(ventfreq, 2 * 2pi / mod);
-			var signal4 = Select.ar(index4, [sin, triangle, saw, square]) * amp4 * SinOsc.kr(ventfreq, 3 * 2pi / mod);
+			var signal1 = Select.ar(index1, [sin, triangle, saw, square]);// * amp1 * SinOsc.kr(npolarRotFreq, 0.0);
+			var signal2 = Select.ar(index2, [sin, triangle, saw, square]);// * amp2 * SinOsc.kr(npolarRotFreq, 2pi / mod);
+			var signal3 = Select.ar(index3, [sin, triangle, saw, square]);// * amp3 * SinOsc.kr(npolarRotFreq, 2 * 2pi / mod);
+			var signal4 = Select.ar(index4, [sin, triangle, saw, square]);// * amp4 * SinOsc.kr(npolarRotFreq, 3 * 2pi / mod);
 
 			var mixed = Select.ar(counter, [signal1, signal2, signal3, signal4]);
 
-			var filtered = MoogFF.ar(in: mixed, freq: cutoff, gain: resonance) * 0.5;
+			var phase = SinOsc.ar(npolarRotFreq, counter * 2pi/modphase, npolarProj);
+			var phase2 = if(mod % 2 == 0, { phase }, { (1.0 - phase) });
+
+			var phased = mixed * phase2;
+
+			var filtered = MoogFF.ar(in: phased, freq: cutoff, gain: resonance) * 0.5;
 
 			Out.ar(0, filtered ! 2);
 		}).add;
@@ -66,6 +73,9 @@ Engine_Farrago : CroneEngine {
 			\amp2, 0.5,
 			\amp3, 0.5,
 			\amp4, 0.5,
+			// npolar projection
+			\npolarProj, 1.0,
+			\npolarRotFreq, 10,
 			// filter
 			\cutoff, 1200,
 			\resonance, 0.0,

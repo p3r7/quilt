@@ -43,7 +43,24 @@ screen_dirty = true
 -- -------------------------------------------------------------------------
 -- init
 
-local clock_redraw
+local clock_redraw, clock_rot
+
+function fmt_phase(param)
+  return param:get() .. "°"
+end
+
+function fmt_percent(param)
+  local value = param:get()
+  return string.format("%.2f", value * 100) .. "%"
+end
+
+BASE_FREQ = 200
+FREQ = BASE_FREQ
+
+-- PITCH_COMPENSATION_MOD = true
+PITCH_COMPENSATION_MOD = false
+-- PITCH_COMPENSATION_SYNC = false
+PITCH_COMPENSATION_SYNC = true
 
 function init()
 
@@ -52,6 +69,8 @@ function init()
   end
 
   local pct_control_on = controlspec.new(0, 1, "lin", 0, 1.0, "")
+  local phase_control = controlspec.new(0, 2 * math.pi, "lin", 0, 0.0, "")
+
 
   params:add_trigger("random", "random")
   params:set_action("random",
@@ -67,16 +86,51 @@ function init()
 
   params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default = 3, action = function(v)
                engine.mod(v)
+
+               local div = 1
+               if PITCH_COMPENSATION_SYNC then
+                 div = params:get("sync_ratio")/2
+               end
+               local mult = 1
+               if PITCH_COMPENSATION_MOD then
+                 mult = v / 4
+               end
+               FREQ = mult * (BASE_FREQ/div)
+               engine.freq(FREQ)
+
                screen_dirty = true
   end}
 
-  params:add{type = "number", id = "sync_ratio", name = "sync_ratio", min = 1, max = 10, default = 1, action = function(v)
+  params:add{type = "control", id = "npolar_rot_amount", name = "rot amount", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProj}
+  params:add{type = "number", id = "npolar_rot_freq", name = "rot freq", min = 1, max = 40, default = 1, action = engine.npolarRotFreq}
+
+  params:add{type = "number", id = "sync_ratio", name = "sync_ratio", min = 1, max = 10, default = 1,
+             action = function(v)
                engine.syncRatio(v)
+
+               local div = 1
+               if PITCH_COMPENSATION_SYNC then
+                 div = v/2
+               end
+               local mult = 1
+               if PITCH_COMPENSATION_MOD then
+                 mult = params:get("mod") / 4
+               end
+               FREQ = mult * (BASE_FREQ/div)
+               engine.freq(FREQ)
+
+
+               -- BASE_FREQ = BASE_FREQ / v
+               -- FREQ = params:get("mod") * BASE_FREQ/2
+               -- engine.freq(FREQ)
+
                screen_dirty = true
   end}
 
-  params:add{type = "number", id = "sync_phase", name = "sync_phase", min = 0.0, max = 2 * math.pi, default = 0.0, action = function(v)
-               engine.syncPhase(v)
+  params:add{type = "control", id = "sync_phase", name = "sync_phase", min = 0, max = 360, default = 0, formatter = fmt_phase,
+             action = function(v)
+               local a = util.linlin(0, 360, 0, 2 * math.pi, v)
+               engine.syncPhase(a)
                screen_dirty = true
   end}
 
@@ -117,6 +171,14 @@ function init()
         end
       end
   end)
+
+  clock_rot = clock.run(function()
+      while true do
+        clock.sleep(1/ROT_FPS)
+        lfo_tick()
+      end
+  end)
+
 end
 
 
@@ -191,6 +253,20 @@ end
 
 
 -- -------------------------------------------------------------------------
+-- LFOs
+
+function lfo_tick()
+  local tick = (1 / ROT_FPS) * params:get("npolar_rot_freq")
+  rot_angle = rot_angle + tick
+  while rot_angle > 1 do
+    rot_angle = rot_angle - 1
+  end
+  -- print(rot_angle)
+  screen_dirty = true
+end
+
+
+-- -------------------------------------------------------------------------
 -- screen
 
 function draw_wave(waveshape, x, w, y, a, sign, dir, segment, nb_segments)
@@ -253,7 +329,10 @@ function draw_poles(x, y, radius, nb_poles)
   for i=1, nb_poles do
     screen.move(x, y)
     local angle = (i-1) * 2 * math.pi / nb_poles
-    local angle2 = angle/(2 * math.pi)
+    local angle2 = angle/(2 * math.pi) + rot_angle
+    while angle2 > 1 do
+      angle2 = angle2 - 1
+    end
     screen.line(x + radius * cos(angle2) * -1, y + radius * sin(angle2))
     screen.stroke()
   end
