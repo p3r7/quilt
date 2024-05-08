@@ -318,7 +318,7 @@ function lfo_tick()
   end
 
   local tick_sliced = (1 / ROT_FPS) * params:get("npolar_rot_freq_sliced") * 2
-  rot_angle_sliced = rot_angle_sliced + tick
+  rot_angle_sliced = rot_angle_sliced + tick_sliced
   while rot_angle_sliced > 1 do
     rot_angle_sliced = rot_angle_sliced - 1
   end
