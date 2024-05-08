@@ -242,9 +242,9 @@ end
 
 function enc(n, d)
   local s = math.abs(d) / d
-  if n == 1 then
+  if n == 2 then
     params:set("mod", params:get("mod") + s)
-  elseif n == 2 then
+  elseif n == 3 then
     params:set("sync_ratio", params:get("sync_ratio") + s)
   end
 end
