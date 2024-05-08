@@ -36,6 +36,8 @@ function screen_size()
   end
 end
 
+S_LVL_MOD = 2
+
 
 -- -------------------------------------------------------------------------
 -- state
@@ -353,7 +355,7 @@ function draw_wave(waveshape, x, w, y, a, sign, dir, segment, nb_segments)
 end
 
 function draw_mod_wave(x, w, y, a, sign, dir)
-  screen.level(5)
+  screen.level(S_LVL_MOD)
   if dir == nil then
     dir = 1
   end
@@ -370,18 +372,37 @@ function draw_mod_wave(x, w, y, a, sign, dir)
 end
 
 function draw_poles(x, y, radius, nb_poles)
+  screen.level(0)
+  screen.move(x + radius + 2, y)
+  screen.circle(x, y, radius + 2)
+  screen.fill()
+
+  screen.level(15)
   screen.move(x + radius, y)
   screen.circle(x, y, radius)
   screen.stroke()
 
   for i=1, nb_poles do
-    screen.move(x, y)
+
+    local r2 = radius * linlin(0, 1, 1, amp_for_pole(i, nb_poles, rot_angle, 1, dir), params:get("npolar_rot_amount"))
+    r2 = math.abs(r2)
+
     local angle = (i-1) * 2 * math.pi / nb_poles
     local angle2 = angle/(2 * math.pi) + rot_angle
     while angle2 > 1 do
       angle2 = angle2 - 1
     end
-    screen.line(x + radius * cos(angle2) * -1, y + radius * sin(angle2))
+
+    -- screen.line(x + radius * cos(angle2) * -1, y + radius * sin(angle2))
+
+    -- screen.level(3)
+    -- screen.move(x, y)
+    -- screen.line(x + radius * cos(angle2) * -1, y + radius * sin(angle2))
+    -- screen.stroke()
+
+    screen.level(15)
+    screen.move(x, y)
+    screen.line(x + r2 * cos(angle2) * -1, y + r2 * sin(angle2))
     screen.stroke()
   end
 end
@@ -399,15 +420,28 @@ function draw_scope_grid(screen_w, screen_h)
   screen.level(15)
 end
 
-function amp_for_pole(n, mod, rot_angle, a)
-  -- 0..1
-  local pole_angle = rot_angle + (n-1) * (1/mod)
-  local sign = 1
-  if rot_angle > 0.5 then
-    sign = -1
+function amp_for_pole(n, mod, rot_angle, a, dir)
+  if dir == nil then
+    dir = 1
   end
+
+  local angle = (n-1) * 2 * math.pi / mod
+  local pole_angle = angle/(2 * math.pi) +  dir * rot_angle
   while pole_angle > 1 do
     pole_angle = pole_angle - 1
+  end
+  while pole_angle < 0 do
+    pole_angle = pole_angle + 1
+  end
+
+  local sign = 1
+  if pole_angle > 0.5 then
+    sign = -1
+  end
+
+  -- FIXME: dirty patch, weird that it's needed
+  if (mod == 2 and n == 2) then
+    sign = -sign
   end
 
   if pole_angle < 0.25 then
@@ -420,12 +454,17 @@ function amp_for_pole(n, mod, rot_angle, a)
     return sign * linlin(0.75, 1, a, 0, pole_angle)
   end
 end
+
+NO_CLEAR_COUNT = 0
+
 function redraw()
   local screen_w, screen_h = screen_size()
 
-  screen.clear()
-
-  -- draw_scope_grid(screen_w, screen_h)
+  if NO_CLEAR_COUNT == 0 or NO_CLEAR_COUNT > 3 then
+    screen.clear()
+    NO_CLEAR_COUNT = 0
+  end
+  -- NO_CLEAR_COUNT = NO_CLEAR_COUNT + 1
 
   local sync_ratio = params:get("sync_ratio") -- nb of sub-segments
   local mod = params:get("mod")
@@ -438,6 +477,10 @@ function redraw()
   local sign = 1
   local x_offset = screen_w/2
 
+  screen.aa(0)
+
+  draw_scope_grid(screen_w, screen_h)
+
   -- mod wave
   for i=1,half_waves do
     draw_mod_wave(x_offset + (i-1) * half_wave_w, half_wave_w, abscissa, a, sign)
@@ -448,6 +491,8 @@ function redraw()
     draw_mod_wave(x_offset - (i-1) * half_wave_w, half_wave_w, abscissa, a, -sign, -1)
     sign = sign * -1
   end
+
+  screen.aa(1)
 
   -- signal wave
   sign = 1
@@ -469,7 +514,7 @@ function redraw()
     for j=1,sync_ratio do
       local wi = math.floor(mod1(i * j, #WAVESHAPES))
       local waveshape = params:string("index"..wi)
-      local pole_a = linlin(0, 1, a, amp_for_pole(i, mod, rot_angle, a), params:get("npolar_rot_amount"))
+      local pole_a = linlin(0, 1, a, -amp_for_pole(i, mod, rot_angle, a, -1), params:get("npolar_rot_amount"))
       draw_wave(waveshape, x_offset - (i-1) * half_wave_w, segment_w, abscissa, pole_a, -sign, -1, j, sync_ratio)
     end
     sign = sign * -1
