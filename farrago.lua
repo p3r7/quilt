@@ -40,16 +40,52 @@ S_LVL_MOD = 2
 
 CS_MIDLOWFREQ = ControlSpec.new(25, 1000, 'exp', 0, 440, "Hz")
 
+
 -- -------------------------------------------------------------------------
 -- state
 
 screen_dirty = true
+
+BASE_FREQ = 110/2
+FREQ = BASE_FREQ
+effective_freq = FREQ
 
 rot_angle = 0
 rot_angle_sliced = 0
 
 has_bleached = false
 
+
+-- -------------------------------------------------------------------------
+-- freq / period calculation
+
+function recompute_effective_freq(freq, mod)
+  if freq == nil then
+    freq = params:get("freq")
+  end
+  if mod == nil then
+    mod = params:get("mod")
+  end
+
+  local first_pole = params:get("index1")
+
+  local all_similar_poles = true
+  for i=2,mod do
+    local wi = math.floor(mod1(i, #WAVESHAPES))
+    local pole = params:get("index"..wi)
+    if first_pole ~= pole then
+      all_similar_poles = false
+      break
+    end
+  end
+
+  if all_similar_poles then
+    effective_freq = freq
+    return
+  end
+
+  effective_freq = (freq/2) * mod
+end
 
 -- -------------------------------------------------------------------------
 -- controllers
@@ -105,13 +141,11 @@ function fmt_percent(param)
   return string.format("%.2f", value * 100) .. "%"
 end
 
-BASE_FREQ = 110/2
-FREQ = BASE_FREQ
-
 PITCH_COMPENSATION_MOD = true
 -- PITCH_COMPENSATION_MOD = false
 -- PITCH_COMPENSATION_SYNC = true
 PITCH_COMPENSATION_SYNC = false
+
 
 function init()
 
@@ -130,12 +164,15 @@ function init()
                       for i=1,4 do
                         params:set("index"..i, math.random(#WAVESHAPES))
                       end
+                      recompute_effective_freq()
                       screen_dirty=true
   end)
 
 
   params:add{type = "control", id = "freq", name = "freq", controlspec = CS_MIDLOWFREQ, formatter = Formatters.format_freq,
              default = BASE_FREQ, action = function(v)
+               recompute_effective_freq(v)
+
                BASE_FREQ = v
 
                local div = 1
@@ -156,6 +193,8 @@ function init()
 
   params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default = 3, action = function(v)
                engine.mod(v)
+
+               recompute_effective_freq(nil, v)
 
                local div = 1
                if PITCH_COMPENSATION_SYNC then
@@ -186,6 +225,8 @@ function init()
   params:add{type = "number", id = "sync_ratio", name = "sync_ratio", min = 1, max = 10, default = 1,
              action = function(v)
                engine.syncRatio(v)
+
+               recompute_effective_freq()
 
                local div = 1
                if PITCH_COMPENSATION_SYNC then
@@ -561,11 +602,14 @@ function redraw()
   screen.stroke()
 
   -- poles
-
   local p_pargin = 1
   local p_radius = 10
   draw_poles(screen_w-(p_radius+p_pargin)*(2 + 0.3), p_radius+p_pargin, p_radius, params:get("mod"), params:get("npolar_rot_amount"), rot_angle)
   draw_poles(screen_w-(p_radius+p_pargin), p_radius+p_pargin, p_radius, params:get("sync_ratio"), params:get("npolar_rot_amount_sliced"), rot_angle_sliced)
+
+  -- metrics
+  screen.move(0, screen_h)
+  screen.text("f="..Formatters.format_freq_raw(params:get("freq")).." -> "..Formatters.format_freq_raw(effective_freq))
 
   screen.update()
   screen_dirty = false
