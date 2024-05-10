@@ -38,6 +38,7 @@ end
 
 S_LVL_MOD = 2
 
+CS_MIDLOWFREQ = ControlSpec.new(25, 1000, 'exp', 0, 440, "Hz")
 
 -- -------------------------------------------------------------------------
 -- state
@@ -72,7 +73,7 @@ local function bleached_cc_cb(midi_msg)
     end
 
     if row == 1 and pot == 1 then
-      --
+      params:set("freq", util.linexp(0, precision, CS_MIDLOWFREQ.minval, CS_MIDLOWFREQ.maxval, v))
     elseif row == 1 and pot == 2 then
       --
     elseif row == 1 and pot == 3 then
@@ -80,11 +81,11 @@ local function bleached_cc_cb(midi_msg)
     elseif row == 2 and pot == 1 then
       params:set("npolar_rot_amount", util.linlin(0, precision, 0, 1, v))
     elseif row == 2 and pot == 2 then
-      params:set("npolar_rot_freq", util.linexp(0, precision, 1, 15000, v))
+      params:set("npolar_rot_freq", util.linexp(0, precision, ControlSpec.WIDEFREQ.minval, ControlSpec.WIDEFREQ.maxval, v))
     elseif row == 2 and pot == 3 then
       params:set("npolar_rot_amount_sliced", util.linlin(0, precision, 0, 1, v))
     elseif row == 2 and pot == 4 then
-      params:set("npolar_rot_freq_sliced", util.linexp(0, precision, 1, 15000, v))
+      params:set("npolar_rot_freq_sliced", util.linexp(0, precision, ControlSpec.WIDEFREQ.minval, ControlSpec.WIDEFREQ.maxval, v))
     end
   end
 end
@@ -104,12 +105,12 @@ function fmt_percent(param)
   return string.format("%.2f", value * 100) .. "%"
 end
 
-BASE_FREQ = 440/2
+BASE_FREQ = 110/2
 FREQ = BASE_FREQ
 
--- PITCH_COMPENSATION_MOD = true
-PITCH_COMPENSATION_MOD = false
--- PITCH_COMPENSATION_SYNC = false
+PITCH_COMPENSATION_MOD = true
+-- PITCH_COMPENSATION_MOD = false
+-- PITCH_COMPENSATION_SYNC = true
 PITCH_COMPENSATION_SYNC = false
 
 function init()
@@ -133,16 +134,40 @@ function init()
   end)
 
 
-  params:add{type = "number", id = "mod", name = "mod", min = 2, max = 31, default = 3, action = function(v)
+  params:add{type = "control", id = "freq", name = "freq", controlspec = CS_MIDLOWFREQ, formatter = Formatters.format_freq,
+             default = BASE_FREQ, action = function(v)
+               BASE_FREQ = v
+
+               local div = 1
+               if PITCH_COMPENSATION_SYNC then
+                 div = params:get("sync_ratio")/4
+               end
+               local mult = 1
+               if PITCH_COMPENSATION_MOD then
+                 if v % 2 == 0 then
+                   mult = params:get("mod") / 2
+                 else
+                   mult = params:get("mod")
+                 end
+               end
+               FREQ = mult * (BASE_FREQ/div)
+               engine.freq(FREQ)
+  end}
+
+  params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default = 3, action = function(v)
                engine.mod(v)
 
                local div = 1
                if PITCH_COMPENSATION_SYNC then
-                 div = params:get("sync_ratio")/2
+                 div = params:get("sync_ratio")/4
                end
                local mult = 1
                if PITCH_COMPENSATION_MOD then
-                 mult = v / 4
+                 if v % 2 == 0 then
+                   mult = v / 2
+                 else
+                   mult = v
+                 end
                end
                FREQ = mult * (BASE_FREQ/div)
                engine.freq(FREQ)
@@ -151,10 +176,12 @@ function init()
   end}
 
   params:add{type = "control", id = "npolar_rot_amount", name = "rot amount", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProj}
-  params:add{type = "number", id = "npolar_rot_freq", name = "rot freq", min = 1, max = 15000, default = 1, action = engine.npolarRotFreq}
+  params:add{type = "control", id = "npolar_rot_freq", name = "rot freq", controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
+             default = 1, action = engine.npolarRotFreq}
 
   params:add{type = "control", id = "npolar_rot_amount_sliced", name = "rot amount sliced", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProjSliced}
-  params:add{type = "number", id = "npolar_rot_freq_sliced", name = "rot freq sliced", min = 1, max = 15000, default = 1, action = engine.npolarRotFreqSliced}
+  params:add{type = "control", id = "npolar_rot_freq_sliced", name = "rot freq sliced", controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
+             default = 1, action = engine.npolarRotFreqSliced}
 
   params:add{type = "number", id = "sync_ratio", name = "sync_ratio", min = 1, max = 10, default = 1,
              action = function(v)
@@ -162,11 +189,11 @@ function init()
 
                local div = 1
                if PITCH_COMPENSATION_SYNC then
-                 div = v/2
+                 div = v/4
                end
                local mult = 1
                if PITCH_COMPENSATION_MOD then
-                 mult = params:get("mod") / 4
+                 mult = params:get("mod") / 2
                end
                FREQ = mult * (BASE_FREQ/div)
                engine.freq(FREQ)
