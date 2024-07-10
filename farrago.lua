@@ -21,6 +21,8 @@ engine.name = "Farrago"
 
 ROT_FPS = 30 -- NB: there is no point in making it faster than FPS
 
+NB_WAVES = 4
+
 FPS = 15
 if norns.version == "update	231108" then
   FPS = 30
@@ -48,7 +50,13 @@ screen_dirty = true
 
 BASE_FREQ = 110/2
 FREQ = BASE_FREQ
+effective_period = 2
 effective_freq = FREQ
+
+PITCH_COMPENSATION_MOD = true
+-- PITCH_COMPENSATION_MOD = false
+-- PITCH_COMPENSATION_SYNC = true
+PITCH_COMPENSATION_SYNC = false
 
 rot_angle = 0
 rot_angle_sliced = 0
@@ -59,6 +67,30 @@ has_bleached = false
 -- -------------------------------------------------------------------------
 -- freq / period calculation
 
+function find_effective_period(poles)
+  local n = #poles
+
+  for period = 1, math.floor(n/2) do
+    local is_periodic = true
+    for i = 1, period do
+      for j = i + period, n, period do
+        if poles[i] ~= poles[j] then
+          is_periodic = false
+          break
+        end
+      end
+      if not is_periodic then
+        break
+      end
+    end
+    if is_periodic then
+      return period
+    end
+  end
+  return n
+end
+
+
 function recompute_effective_freq(freq, mod)
   if freq == nil then
     freq = params:get("freq")
@@ -67,25 +99,28 @@ function recompute_effective_freq(freq, mod)
     mod = params:get("mod")
   end
 
-  local first_pole = params:get("index1")
-
-  local all_similar_poles = true
-  for i=2,mod do
+  local poles = {}
+  local sign = 1
+  local rev = (mod % 2 == 0) and 1 or -1
+  for i=1,mod do
     local wi = math.floor(mod1(i, #WAVESHAPES))
     local pole = params:get("index"..wi)
-    if first_pole ~= pole then
-      all_similar_poles = false
-      break
-    end
+    poles[i] = sign * pole
+    poles[mod+i] = rev * sign * pole
+    sign = -sign
   end
 
-  if all_similar_poles then
-    effective_freq = freq
-    return
-  end
+  -- tab.print(poles)
 
-  effective_freq = (freq/2) * mod
+  effective_period = find_effective_period(poles)
+  if effective_period > mod then
+    effective_period = effective_period / 4.3
+  end
+  -- print("effective_period="..effective_period)
+
+  effective_freq = freq * 2 / effective_period
 end
+
 
 -- -------------------------------------------------------------------------
 -- controllers
@@ -141,11 +176,6 @@ function fmt_percent(param)
   return string.format("%.2f", value * 100) .. "%"
 end
 
-PITCH_COMPENSATION_MOD = true
--- PITCH_COMPENSATION_MOD = false
--- PITCH_COMPENSATION_SYNC = true
-PITCH_COMPENSATION_SYNC = false
-
 
 function init()
 
@@ -171,137 +201,157 @@ function init()
 
   params:add{type = "control", id = "freq", name = "freq", controlspec = CS_MIDLOWFREQ, formatter = Formatters.format_freq,
              default = BASE_FREQ, action = function(v)
-               recompute_effective_freq(v)
-
                BASE_FREQ = v
+               local mod = params:get("mod")
+
+               recompute_effective_freq(BASE_FREQ, mod)
 
                local div = 1
                if PITCH_COMPENSATION_SYNC then
                  div = params:get("sync_ratio")/4
                end
                local mult = 1
+
                if PITCH_COMPENSATION_MOD then
-                 if v % 2 == 0 then
-                   mult = params:get("mod") / 2
-                 else
-                   mult = params:get("mod")
-                 end
+                 mult = effective_period/2
                end
                FREQ = mult * (BASE_FREQ/div)
                engine.freq(FREQ)
-  end}
+               end}
 
-  params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default = 3, action = function(v)
-               engine.mod(v)
+params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default = 3, action = function(v)
+             engine.mod(v)
+             local mod = v
 
-               recompute_effective_freq(nil, v)
+             recompute_effective_freq(BASE_FREQ, mod)
 
-               local div = 1
-               if PITCH_COMPENSATION_SYNC then
-                 div = params:get("sync_ratio")/4
+             local div = 1
+             if PITCH_COMPENSATION_SYNC then
+               div = params:get("sync_ratio")/4
                end
                local mult = 1
+
                if PITCH_COMPENSATION_MOD then
-                 if v % 2 == 0 then
-                   mult = v / 2
-                 else
-                   mult = v
-                 end
+                 mult = effective_period/2
                end
                FREQ = mult * (BASE_FREQ/div)
                engine.freq(FREQ)
 
                screen_dirty = true
-  end}
+end}
 
-  params:add{type = "control", id = "npolar_rot_amount", name = "rot amount", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProj}
-  params:add{type = "control", id = "npolar_rot_freq", name = "rot freq", controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
-             default = 1, action = engine.npolarRotFreq}
+params:add{type = "control", id = "npolar_rot_amount", name = "rot amount", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProj}
+params:add{type = "control", id = "npolar_rot_freq", name = "rot freq", controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
+           default = 1, action = engine.npolarRotFreq}
 
-  params:add{type = "control", id = "npolar_rot_amount_sliced", name = "rot amount sliced", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProjSliced}
-  params:add{type = "control", id = "npolar_rot_freq_sliced", name = "rot freq sliced", controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
-             default = 1, action = engine.npolarRotFreqSliced}
+params:add{type = "control", id = "npolar_rot_amount_sliced", name = "rot amount sliced", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProjSliced}
+params:add{type = "control", id = "npolar_rot_freq_sliced", name = "rot freq sliced", controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
+           default = 1, action = engine.npolarRotFreqSliced}
 
-  params:add{type = "number", id = "sync_ratio", name = "sync_ratio", min = 1, max = 10, default = 1,
-             action = function(v)
-               engine.syncRatio(v)
+params:add{type = "number", id = "sync_ratio", name = "sync_ratio", min = 1, max = 10, default = 1,
+           action = function(v)
+             engine.syncRatio(v)
 
-               recompute_effective_freq()
+             recompute_effective_freq()
 
-               local div = 1
-               if PITCH_COMPENSATION_SYNC then
-                 div = v/4
-               end
-               local mult = 1
-               if PITCH_COMPENSATION_MOD then
-                 mult = params:get("mod") / 2
-               end
-               FREQ = mult * (BASE_FREQ/div)
-               engine.freq(FREQ)
+             local div = 1
+             if PITCH_COMPENSATION_SYNC then
+               div = v/4
+             end
+             local mult = 1
+             if PITCH_COMPENSATION_MOD then
+               mult = params:get("mod") / 2
+             end
+             FREQ = mult * (BASE_FREQ/div)
+             engine.freq(FREQ)
 
 
-               -- BASE_FREQ = BASE_FREQ / v
-               -- FREQ = params:get("mod") * BASE_FREQ/2
-               -- engine.freq(FREQ)
+             -- BASE_FREQ = BASE_FREQ / v
+             -- FREQ = params:get("mod") * BASE_FREQ/2
+             -- engine.freq(FREQ)
 
-               screen_dirty = true
-  end}
+             screen_dirty = true
+end}
 
-  params:add{type = "control", id = "sync_phase", name = "sync_phase", min = 0, max = 360, default = 0, formatter = fmt_phase,
-             action = function(v)
-               local a = util.linlin(0, 360, 0, 2 * math.pi, v)
-               engine.syncPhase(a)
-               screen_dirty = true
-  end}
+params:add{type = "control", id = "sync_phase", name = "sync_phase", min = 0, max = 360, default = 0, formatter = fmt_phase,
+           action = function(v)
+             local a = util.linlin(0, 360, 0, 2 * math.pi, v)
+             engine.syncPhase(a)
+             screen_dirty = true
+end}
 
-  params:add{type = "option", id = "index1", name = "index1", options = WAVESHAPES, action = function(v)
-               engine.index1(v-1)
-               screen_dirty = true
-  end}
-  params:add{type = "option", id = "index2", name = "index2", options = WAVESHAPES, action = function(v)
-               engine.index2(v-1)
-               screen_dirty = true
-  end}
-  params:add{type = "option", id = "index3", name = "index3", options = WAVESHAPES, action = function(v)
-               engine.index3(v-1)
-               screen_dirty = true
-  end}
-  params:add{type = "option", id = "index4", name = "index4", options = WAVESHAPES, action = function(v)
-               engine.index4(v-1)
-               screen_dirty = true
-  end}
+-- FIXME: should call recompute_effective_freq() after!
+-- use a clock instead
 
-  params:add{type = "control", id = "cutoff", name = "cutoff", controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq}
-  params:set_action("cutoff", function (v)
-                      engine.cutoff(v)
-  end)
+params:add{type = "option", id = "index1", name = "index1", options = WAVESHAPES, action = function(v)
+             engine.index1(v-1)
+             screen_dirty = true
+end}
 
-  local moog_res = controlspec.new(0, 4, "lin", 0, 0.0, "")
-  params:add{type = "control", id = "res", name = "res", controlspec = moog_res}
-  params:set_action("res", function (v)
-                      engine.resonance(v)
-  end)
+params:add{type = "option", id = "index2", name = "index2", options = WAVESHAPES, action = function(v)
+             engine.index2(v-1)
+             screen_dirty = true
+end}
+params:add{type = "option", id = "index3", name = "index3", options = WAVESHAPES, action = function(v)
+             engine.index3(v-1)
+             screen_dirty = true
+end}
+params:add{type = "option", id = "index4", name = "index4", options = WAVESHAPES, action = function(v)
+             engine.index4(v-1)
+             screen_dirty = true
+end}
 
-  bleached.init(bleached_cc_cb)
-  bleached.switch_cc_mode(bleached.M_CC14)
+params:add{type = "control", id = "cutoff", name = "cutoff", controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq}
+params:set_action("cutoff", function (v)
+                    engine.cutoff(v)
+end)
 
-  params:bang()
+local moog_res = controlspec.new(0, 4, "lin", 0, 0.0, "")
+params:add{type = "control", id = "res", name = "res", controlspec = moog_res}
+params:set_action("res", function (v)
+                    engine.resonance(v)
+end)
 
-  clock_redraw = clock.run(function()
-      while true do
-        clock.sleep(1/FPS)
-        if screen_dirty then
-          redraw()
-        end
+  -- params:set("index1", 2)
+-- params:set("index2", 2)
+-- params:set("index3", 2)
+-- params:set("index4", 2)
+
+-- params:set("index1", 3)
+-- params:set("index2", 3)
+-- params:set("index3", 3)
+-- params:set("index4", 3)
+
+params:bang()
+
+-- params:set("index1", 1)
+-- params:set("index2", 1)
+-- params:set("index3", 1)
+-- params:set("index4", 1)
+
+-- params:set("index1", 4)
+-- params:set("index2", 4)
+-- params:set("index3", 4)
+-- params:set("index4", 4)
+
+bleached.init(bleached_cc_cb)
+bleached.switch_cc_mode(bleached.M_CC14)
+
+clock_redraw = clock.run(function()
+    while true do
+      clock.sleep(1/FPS)
+      if screen_dirty then
+        redraw()
       end
-  end)
+    end
+end)
 
-  clock_rot = clock.run(function()
-      while true do
-        clock.sleep(1/ROT_FPS)
-        lfo_tick()
-      end
-  end)
+clock_rot = clock.run(function()
+    while true do
+      clock.sleep(1/ROT_FPS)
+      lfo_tick()
+    end
+end)
 
 end
 
@@ -384,13 +434,13 @@ end
 -- LFOs
 
 function lfo_tick()
-  local tick = (1 / ROT_FPS) * params:get("npolar_rot_freq") * 2
+  local tick = (1 / ROT_FPS) * params:get("npolar_rot_freq")
   rot_angle = rot_angle + tick
   while rot_angle > 1 do
     rot_angle = rot_angle - 1
   end
 
-  local tick_sliced = (1 / ROT_FPS) * params:get("npolar_rot_freq_sliced") * 2
+  local tick_sliced = (1 / ROT_FPS) * params:get("npolar_rot_freq_sliced")
   rot_angle_sliced = rot_angle_sliced + tick_sliced
   while rot_angle_sliced > 1 do
     rot_angle_sliced = rot_angle_sliced - 1
@@ -456,7 +506,7 @@ function draw_mod_wave(x, w, y, a, sign, dir)
   screen.level(15)
 end
 
-function draw_poles(x, y, radius, nb_poles, amount, rot_angle)
+function draw_poles(x, y, radius, nb_poles, amount, rot_angle, speed)
   screen.level(0)
   screen.move(x + radius + 2, y)
   screen.circle(x, y, radius + 2)
@@ -466,6 +516,43 @@ function draw_poles(x, y, radius, nb_poles, amount, rot_angle)
   screen.move(x + radius, y)
   screen.circle(x, y, radius)
   screen.stroke()
+
+  -- NB: we're gettting the notorious "wagon-wheel effect" which makes effective speed less readable
+  -- so we add artifacts to give a sense of scale of speeds past ROT_FPS
+  if speed > ROT_FPS/2 then
+    -- screen.level(util.round(util.linlin(1, 15, nb_poles)))
+    screen.level(util.round(util.linlin(0, 15, 2, 10, nb_poles)))
+    local ratio = speed / (ROT_FPS/2)
+    local r = util.explin(1, ControlSpec.WIDEFREQ.maxval / ROT_FPS, 1, radius, ratio)
+    -- print(ratio .. " -> " .. r)
+
+    local y2 = y
+    if amount <= 0.5 then
+      y2 = util.round(y - amount * r)
+      local rtop = r - amount * r
+      screen.move(x + rtop, y2)
+      screen.circle(x, y2, rtop)
+      screen.fill()
+    else
+      local abtm = amount - 0.5
+      -- local atop = 1 - abtm
+
+      -- local rtop = atop * r
+      local rtop = r - 0.5 * r
+      local rbtm = abtm * r
+
+      y2 = util.round(y - rtop)
+      screen.move(x + rtop, y2)
+      screen.circle(x, y2, rtop)
+      screen.fill()
+
+      y2 = util.round(y + rbtm)
+      screen.move(x + rbtm, y2)
+      screen.circle(x, y2, rbtm)
+      screen.fill()
+    end
+
+  end
 
   for i=1, nb_poles do
 
@@ -490,6 +577,8 @@ function draw_poles(x, y, radius, nb_poles, amount, rot_angle)
     screen.line(x + r2 * cos(angle2) * -1, y + r2 * sin(angle2))
     screen.stroke()
   end
+
+
 end
 
 function draw_scope_grid(screen_w, screen_h)
@@ -604,12 +693,16 @@ function redraw()
   -- poles
   local p_pargin = 1
   local p_radius = 10
-  draw_poles(screen_w-(p_radius+p_pargin)*(2 + 0.3), p_radius+p_pargin, p_radius, params:get("mod"), params:get("npolar_rot_amount"), rot_angle)
-  draw_poles(screen_w-(p_radius+p_pargin), p_radius+p_pargin, p_radius, params:get("sync_ratio"), params:get("npolar_rot_amount_sliced"), rot_angle_sliced)
+  draw_poles(screen_w-(p_radius+p_pargin)*(2 + 0.3), p_radius+p_pargin, p_radius, params:get("mod"), params:get("npolar_rot_amount"), rot_angle, params:get("npolar_rot_freq"))
+  draw_poles(screen_w-(p_radius+p_pargin), p_radius+p_pargin, p_radius, params:get("sync_ratio"), params:get("npolar_rot_amount_sliced"), rot_angle_sliced, params:get("npolar_rot_freq_sliced"))
 
   -- metrics
   screen.move(0, screen_h)
-  screen.text("f="..Formatters.format_freq_raw(params:get("freq")).." -> "..Formatters.format_freq_raw(effective_freq))
+  local msg = "f="..Formatters.format_freq_raw(params:get("freq")).." -> "..Formatters.format_freq_raw(effective_freq)
+  if PITCH_COMPENSATION_MOD then
+    msg = msg .. " -> " .. (effective_freq * effective_period/2)
+  end
+  screen.text(msg)
 
   screen.update()
   screen_dirty = false
