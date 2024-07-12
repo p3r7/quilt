@@ -163,6 +163,37 @@ end
 
 
 -- -------------------------------------------------------------------------
+--
+-- notes
+
+function note_on(note_num, vel)
+  engine.noteOn(note_num, MusicUtil.note_num_to_freq(note_num), vel)
+end
+
+function note_off(note_num)
+  engine.noteOff(note_num)
+end
+
+function midi_event(data)
+  local msg = midi.to_msg(data)
+
+  if not msg.ch then
+    return
+  end
+
+  if params:string("midi_channel") ~= "All" and msg.ch ~= (params:get("midi_channel") - 1) then
+    return
+  end
+
+  if msg.type == "note_off" then
+    note_off(msg.note)
+  elseif msg.type == "note_on" then
+    note_on(msg.note, msg.vel / 127)
+  end
+end
+
+
+-- -------------------------------------------------------------------------
 -- init
 
 local clock_redraw, clock_rot
@@ -184,6 +215,7 @@ function init()
   end
 
   local pct_control_on = controlspec.new(0, 1, "lin", 0, 1.0, "")
+  local pct_control_off = controlspec.new(0, 1, "lin", 0, 0.0, "")
   local phase_control = controlspec.new(0, 2 * math.pi, "lin", 0, 0.0, "")
 
   params:add_trigger("random", "random")
@@ -198,6 +230,16 @@ function init()
                       screen_dirty=true
   end)
 
+  -- amp env
+  local ENV_ATTACK = ControlSpec.new(0.002, 5, "lin", 0, 0.55, "s")
+  local ENV_DECAY = ControlSpec.new(0.002, 10, "lin", 0, 0.3, "s")
+  local ENV_SUSTAIN = ControlSpec.new(0, 1, "lin", 0, 0.5, "")
+  local ENV_RELEASE = ControlSpec.new(0.002, 10, "lin", 0, 2, "s")
+  params:add{type = "control", id = "amp_offset", name = "Amp Offset", controlspec = pct_control_off, formatter = format_percent, action = engine.amp_offset_all}
+  params:add{type = "control", id = "amp_attack", name = "Amp Attack", controlspec = ENV_ATTACK, formatter = Formatters.format_secs, action = engine.attack_all}
+  params:add{type = "control", id = "amp_decay", name = "Amp Decay", controlspec = ENV_DECAY, formatter = Formatters.format_secs, action = engine.decay_all}
+  params:add{type = "control", id = "amp_sustain", name = "Amp Sustain", controlspec = ENV_SUSTAIN, action = engine.sustain}
+  params:add{type = "control", id = "amp_release", name = "Amp Release", controlspec = ENV_RELEASE, formatter = Formatters.format_secs, action = engine.release_all}
 
   params:add{type = "control", id = "freq", name = "freq", controlspec = CS_MIDLOWFREQ, formatter = Formatters.format_freq,
              default = BASE_FREQ, action = function(v)
@@ -220,7 +262,7 @@ function init()
                end}
 
 params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default = 3, action = function(v)
-             engine.mod(v)
+             engine.mod_all(v)
              local mod = v
 
              recompute_effective_freq(BASE_FREQ, mod)
@@ -240,17 +282,17 @@ params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default
                screen_dirty = true
 end}
 
-params:add{type = "control", id = "npolar_rot_amount", name = "rot amount", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProj}
+params:add{type = "control", id = "npolar_rot_amount", name = "rot amount", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProj_all}
 params:add{type = "control", id = "npolar_rot_freq", name = "rot freq", controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
-           default = 1, action = engine.npolarRotFreq}
+           default = 1, action = engine.npolarRotFreq_all}
 
-params:add{type = "control", id = "npolar_rot_amount_sliced", name = "rot amount sliced", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProjSliced}
+params:add{type = "control", id = "npolar_rot_amount_sliced", name = "rot amount sliced", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProjSliced_all}
 params:add{type = "control", id = "npolar_rot_freq_sliced", name = "rot freq sliced", controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
-           default = 1, action = engine.npolarRotFreqSliced}
+           default = 1, action = engine.npolarRotFreqSliced_all}
 
 params:add{type = "number", id = "sync_ratio", name = "sync_ratio", min = 1, max = 10, default = 1,
            action = function(v)
-             engine.syncRatio(v)
+             engine.syncRatio_all(v)
 
              recompute_effective_freq()
 
@@ -276,43 +318,43 @@ end}
 params:add{type = "control", id = "sync_phase", name = "sync_phase", min = 0, max = 360, default = 0, formatter = fmt_phase,
            action = function(v)
              local a = util.linlin(0, 360, 0, 2 * math.pi, v)
-             engine.syncPhase(a)
-             screen_dirty = true
+               engine.syncPhase_all(a)
+               screen_dirty = true
 end}
 
 -- FIXME: should call recompute_effective_freq() after!
 -- use a clock instead
 
 params:add{type = "option", id = "index1", name = "index1", options = WAVESHAPES, action = function(v)
-             engine.index1(v-1)
-             screen_dirty = true
+               engine.index1_all(v-1)
+               screen_dirty = true
 end}
 
 params:add{type = "option", id = "index2", name = "index2", options = WAVESHAPES, action = function(v)
-             engine.index2(v-1)
-             screen_dirty = true
+               engine.index2_all(v-1)
+               screen_dirty = true
 end}
 params:add{type = "option", id = "index3", name = "index3", options = WAVESHAPES, action = function(v)
-             engine.index3(v-1)
-             screen_dirty = true
+               engine.index3_all(v-1)
+               screen_dirty = true
 end}
 params:add{type = "option", id = "index4", name = "index4", options = WAVESHAPES, action = function(v)
-             engine.index4(v-1)
-             screen_dirty = true
+               engine.index4_all(v-1)
+               screen_dirty = true
 end}
 
 params:add{type = "control", id = "cutoff", name = "cutoff", controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq}
 params:set_action("cutoff", function (v)
-                    engine.cutoff(v)
+                    engine.cutoff_all(v)
 end)
 
 local moog_res = controlspec.new(0, 4, "lin", 0, 0.0, "")
 params:add{type = "control", id = "res", name = "res", controlspec = moog_res}
 params:set_action("res", function (v)
-                    engine.resonance(v)
+                    engine.resonance_all(v)
 end)
 
-  -- params:set("index1", 2)
+-- params:set("index1", 2)
 -- params:set("index2", 2)
 -- params:set("index3", 2)
 -- params:set("index4", 2)
@@ -336,6 +378,18 @@ params:bang()
 
 bleached.init(bleached_cc_cb)
 bleached.switch_cc_mode(bleached.M_CC14)
+
+params:add{type = "number", id = "midi_device", name = "MIDI Device", min = 1, max = 4, default = 1, action = function(v)
+             if m ~= nil then
+               m.event = nil
+             end
+             m = midi.connect(v)
+             m.event = midi_event
+end}
+
+local MIDI_CHANNELS = {"All"}
+for i = 1, 16 do table.insert(MIDI_CHANNELS, i) end
+params:add{type = "option", id = "midi_channel", name = "MIDI Channel", options = MIDI_CHANNELS}
 
 clock_redraw = clock.run(function()
     while true do
