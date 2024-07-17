@@ -21,6 +21,7 @@ engine.name = "Farrago"
 
 ROT_FPS = 30 -- NB: there is no point in making it faster than FPS
 
+NB_VOICES = 8
 NB_WAVES = 4
 
 FPS = 15
@@ -58,10 +59,34 @@ PITCH_COMPENSATION_MOD = true
 -- PITCH_COMPENSATION_SYNC = true
 PITCH_COMPENSATION_SYNC = false
 
+voices = {}
+curr_voice_id = 1
+next_voice_id = 1
+note_id_voice_map = {}
+
+for i=1,NB_VOICES do
+  voices[i] = {
+    active = false,
+    hz = 20,
+    vel = 0,
+    rot_angle = 0,
+  }
+end
+
 rot_angle = 0
 rot_angle_sliced = 0
 
 has_bleached = false
+
+function allocate_voice(note_id)
+  curr_voice_id = next_voice_id;
+  note_id_voice_map[note_id] = curr_voice_id
+  next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
+end
+
+function unallocate_voice(note_id)
+  note_id_voice_map[note_id] = nil
+end
 
 
 -- -------------------------------------------------------------------------
@@ -146,7 +171,9 @@ local function bleached_cc_cb(midi_msg)
     if row == 1 and pot == 1 then
       params:set("freq", util.linexp(0, precision, CS_MIDLOWFREQ.minval, CS_MIDLOWFREQ.maxval, v))
     elseif row == 1 and pot == 2 then
-      --
+      -- params:set("voice_count", util.round(util.linlin(0, precision, 1, 8, v)))
+      params:set("freq_sag", util.linlin(0, precision, 0, 1, v))
+      params:set("cutoff_sag", util.linlin(0, precision, 0, 1, v))
     elseif row == 1 and pot == 3 then
       params:set("cutoff", util.linexp(0, precision, ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval, v))
     elseif row == 2 and pot == 1 then
@@ -167,11 +194,34 @@ end
 -- notes
 
 function note_on(note_num, vel)
-  engine.noteOn(note_num, MusicUtil.note_num_to_freq(note_num), vel)
+  allocate_voice(note_num)
+  local voice_id = note_id_voice_map[note_num]
+  if voice_id == nil then
+    return
+  end
+  local hz = MusicUtil.note_num_to_freq(note_num)
+  voices[voice_id].active = true
+  voices[voice_id].hz = hz
+  voices[voice_id].vel = vel
+  engine.noteOn(note_num, hz, vel)
 end
 
 function note_off(note_num)
+  local voice_id =  note_id_voice_map[note_num]
+  if voice_id == nil then
+    return
+  end
+  voices[voice_id].active = false
+  voices[voice_id].vel = 0
+  unallocate_voice(note_num)
   engine.noteOff(note_num)
+end
+
+function aftertouch(v)
+  -- review: don't use params for this but global state vars
+  engine.cutoff_all(util.linexp(0, 1, params:get("cutoff"), math.min(params:get("cutoff") + ControlSpec.FREQ.maxval/10,ControlSpec.FREQ.maxval), v))
+  engine.npolarRotFreq_all(util.linexp(0, 1, params:get("npolar_rot_freq"), math.min(params:get("npolar_rot_freq") + util.expexp(ControlSpec.WIDEFREQ.minval, ControlSpec.WIDEFREQ.maxval, 0, params:get("npolar_rot_freq"), params:get("npolar_rot_freq")), ControlSpec.WIDEFREQ.maxval), v))
+  -- engine.npolarRotFreqSliced_all(util.linexp(0, 1, params:get("npolar_rot_freq_sliced"), math.min(params:get("npolar_rot_freq_sliced") + 100,ControlSpec.WIDEFREQ.maxval) , v))
 end
 
 function midi_event(data)
@@ -189,6 +239,8 @@ function midi_event(data)
     note_off(msg.note)
   elseif msg.type == "note_on" then
     note_on(msg.note, msg.vel / 127)
+  elseif msg.type == "channel_pressure" then
+    aftertouch(msg.val / 127)
   end
 end
 
@@ -217,6 +269,20 @@ function init()
   local pct_control_on = controlspec.new(0, 1, "lin", 0, 1.0, "")
   local pct_control_off = controlspec.new(0, 1, "lin", 0, 0.0, "")
   local phase_control = controlspec.new(0, 2 * math.pi, "lin", 0, 0.0, "")
+
+  params:add{type = "number", id = "midi_device", name = "MIDI Device", min = 1, max = 4, default = 2, action = function(v)
+               if m ~= nil then
+                 m.event = nil
+               end
+               m = midi.connect(v)
+               m.event = midi_event
+  end}
+
+  local MIDI_CHANNELS = {"All"}
+  for i = 1, 16 do table.insert(MIDI_CHANNELS, i) end
+  params:add{type = "option", id = "midi_channel", name = "MIDI Channel", options = MIDI_CHANNELS}
+
+  params:add{type = "number", id = "voice_count", name = "# voices", min = 1, max = 8, default = 8, action = engine.voice_count}
 
   params:add_trigger("random", "random")
   params:set_action("random",
@@ -258,17 +324,22 @@ function init()
                  mult = effective_period/2
                end
                FREQ = mult * (BASE_FREQ/div)
-               engine.freq(FREQ)
-               end}
+               engine.freq_curr(FREQ)
 
-params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default = 3, action = function(v)
-             engine.mod_all(v)
-             local mod = v
+               voices[curr_voice_id].hz = FREQ
+  end}
 
-             recompute_effective_freq(BASE_FREQ, mod)
+  params:add{type = "control", id = "freq_sag", name = "freq sag", controlspec = pct_control_off,
+             default=0.1, action = engine.freq_sag_all}
 
-             local div = 1
-             if PITCH_COMPENSATION_SYNC then
+  params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default = 3, action = function(v)
+               engine.mod_all(v)
+               local mod = v
+
+               recompute_effective_freq(BASE_FREQ, mod)
+
+               local div = 1
+               if PITCH_COMPENSATION_SYNC then
                div = params:get("sync_ratio")/4
                end
                local mult = 1
@@ -277,18 +348,22 @@ params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default
                  mult = effective_period/2
                end
                FREQ = mult * (BASE_FREQ/div)
-               engine.freq(FREQ)
+               engine.freq_curr(FREQ)
 
                screen_dirty = true
-end}
+  end}
 
 params:add{type = "control", id = "npolar_rot_amount", name = "rot amount", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProj_all}
 params:add{type = "control", id = "npolar_rot_freq", name = "rot freq", controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
            default = 1, action = engine.npolarRotFreq_all}
+params:add{type = "control", id = "npolar_rot_freq_sag", name = "rot freq sag", controlspec = pct_control_off,
+           default = 0.1, action = engine.npolarRotFreq_sag_all}
 
 params:add{type = "control", id = "npolar_rot_amount_sliced", name = "rot amount sliced", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProjSliced_all}
 params:add{type = "control", id = "npolar_rot_freq_sliced", name = "rot freq sliced", controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
            default = 1, action = engine.npolarRotFreqSliced_all}
+params:add{type = "control", id = "npolar_rot_freq_sag", name = "rot freq sag", controlspec = pct_control_off,
+           default = 0.1, action = engine.npolarRotFreqSliced_sag_all}
 
 params:add{type = "number", id = "sync_ratio", name = "sync_ratio", min = 1, max = 10, default = 1,
            action = function(v)
@@ -305,12 +380,12 @@ params:add{type = "number", id = "sync_ratio", name = "sync_ratio", min = 1, max
                mult = params:get("mod") / 2
              end
              FREQ = mult * (BASE_FREQ/div)
-             engine.freq(FREQ)
+             engine.freq_curr(FREQ)
 
 
              -- BASE_FREQ = BASE_FREQ / v
              -- FREQ = params:get("mod") * BASE_FREQ/2
-             -- engine.freq(FREQ)
+             -- engine.freq_curr(FREQ)
 
              screen_dirty = true
 end}
@@ -344,68 +419,63 @@ params:add{type = "option", id = "index4", name = "index4", options = WAVESHAPES
 end}
 
 params:add{type = "control", id = "cutoff", name = "cutoff", controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq}
-params:set_action("cutoff", function (v)
-                    engine.cutoff_all(v)
-end)
+  params:set_action("cutoff", engine.cutoff_all)
 
-local moog_res = controlspec.new(0, 4, "lin", 0, 0.0, "")
-params:add{type = "control", id = "res", name = "res", controlspec = moog_res}
-params:set_action("res", function (v)
-                    engine.resonance_all(v)
-end)
+  params:add{type = "control", id = "cutoff_sag", name = "cutoff sag", controlspec = pct_control_off,
+             default=0.1, action = engine.cutoff_sag_all}
 
--- params:set("index1", 2)
--- params:set("index2", 2)
--- params:set("index3", 2)
--- params:set("index4", 2)
+  local moog_res = controlspec.new(0, 4, "lin", 0, 0.0, "")
+  params:add{type = "control", id = "res", name = "res", controlspec = moog_res}
+  params:set_action("res", engine.resonance_all)
 
--- params:set("index1", 3)
--- params:set("index2", 3)
--- params:set("index3", 3)
--- params:set("index4", 3)
+  local pct_control_bipolar = controlspec.new(-1, 1, "lin", 0, 0.5, "")
+  params:add{type = "control", id = "fktrack", name = "filter kbd track", controlspec = pct_control_bipolar}
+  params:set_action("fktrack", engine.fktrack_all)
 
-params:bang()
+  local pct_sat_threshold = controlspec.new(0.1, 1, "lin", 0, 0.5, "")
+  params:add{type = "control", id = "sat_threshold", name = "sat/comp threshold", controlspec = pct_sat_threshold}
+  params:set_action("sat_threshold", engine.sat_threshold_all)
 
--- params:set("index1", 1)
--- params:set("index2", 1)
--- params:set("index3", 1)
--- params:set("index4", 1)
+  -- params:set("index1", 2)
+  -- params:set("index2", 2)
+  -- params:set("index3", 2)
+  -- params:set("index4", 2)
 
--- params:set("index1", 4)
--- params:set("index2", 4)
--- params:set("index3", 4)
--- params:set("index4", 4)
+  -- params:set("index1", 3)
+  -- params:set("index2", 3)
+  -- params:set("index3", 3)
+  -- params:set("index4", 3)
 
-bleached.init(bleached_cc_cb)
-bleached.switch_cc_mode(bleached.M_CC14)
+  params:bang()
 
-params:add{type = "number", id = "midi_device", name = "MIDI Device", min = 1, max = 4, default = 1, action = function(v)
-             if m ~= nil then
-               m.event = nil
-             end
-             m = midi.connect(v)
-             m.event = midi_event
-end}
+  -- params:set("index1", 1)
+  -- params:set("index2", 1)
+  -- params:set("index3", 1)
+  -- params:set("index4", 1)
 
-local MIDI_CHANNELS = {"All"}
-for i = 1, 16 do table.insert(MIDI_CHANNELS, i) end
-params:add{type = "option", id = "midi_channel", name = "MIDI Channel", options = MIDI_CHANNELS}
+  -- params:set("index1", 4)
+  -- params:set("index2", 4)
+  -- params:set("index3", 4)
+  -- params:set("index4", 4)
+
+  bleached.init(bleached_cc_cb)
+  bleached.switch_cc_mode(bleached.M_CC14)
 
 clock_redraw = clock.run(function()
     while true do
-      clock.sleep(1/FPS)
-      if screen_dirty then
-        redraw()
+        clock.sleep(1/FPS)
+        if screen_dirty then
+          redraw()
+        end
       end
-    end
-end)
+  end)
 
-clock_rot = clock.run(function()
-    while true do
-      clock.sleep(1/ROT_FPS)
-      lfo_tick()
-    end
-end)
+  clock_rot = clock.run(function()
+      while true do
+        clock.sleep(1/ROT_FPS)
+        lfo_tick()
+      end
+  end)
 
 end
 
@@ -500,6 +570,14 @@ function lfo_tick()
     rot_angle_sliced = rot_angle_sliced - 1
   end
 
+  for i=1,NB_VOICES do
+    local tick_v = (1 / ROT_FPS) * voices[i].hz
+    voices[i].rot_angle = voices[i].rot_angle + tick_v
+    while voices[i].rot_angle > 1 do
+      voices[i].rot_angle = voices[i].rot_angle - 1
+    end
+  end
+
   -- print(rot_angle)
   screen_dirty = true
 end
@@ -560,7 +638,45 @@ function draw_mod_wave(x, w, y, a, sign, dir)
   screen.level(15)
 end
 
-function draw_poles(x, y, radius, nb_poles, amount, rot_angle, speed)
+function draw_poles(x, y, radius, speed, nb_poles, amount, rot_angle, is_active)
+  local l = is_active and 15 or 5
+  screen.level(0)
+  screen.move(x + radius + 2, y)
+  screen.circle(x, y, radius + 2)
+  screen.fill()
+
+  screen.level(l)
+  screen.move(x + radius, y)
+  screen.circle(x, y, radius)
+  screen.stroke()
+
+  if speed > ROT_FPS/2 then
+    screen.level(util.round(util.linlin(0, l, 2, 10, nb_poles)))
+    local ratio = speed / (ROT_FPS/2)
+    local r = util.explin(1, ControlSpec.WIDEFREQ.maxval / ROT_FPS, 1, radius, ratio)
+    screen.move(x, y)
+    screen.circle(x, y, r)
+    screen.fill()
+  end
+
+  for i=1, nb_poles do
+    local r2 = radius * linlin(0, 1, 1, amp_for_pole(i, nb_poles, rot_angle, 1, dir), amount)
+    r2 = math.abs(r2)
+
+    local angle = (i-1) * 2 * math.pi / nb_poles
+    local angle2 = angle/(2 * math.pi) + rot_angle
+    while angle2 > 1 do
+      angle2 = angle2 - 1
+    end
+
+    screen.level(l)
+    screen.move(x, y)
+    screen.line(x + r2 * cos(angle2) * -1, y + r2 * sin(angle2))
+    screen.stroke()
+  end
+end
+
+function draw_mod_poles(x, y, radius, nb_poles, amount, rot_angle, speed)
   screen.level(0)
   screen.move(x + radius + 2, y)
   screen.circle(x, y, radius + 2)
@@ -605,7 +721,6 @@ function draw_poles(x, y, radius, nb_poles, amount, rot_angle, speed)
       screen.circle(x, y2, rbtm)
       screen.fill()
     end
-
   end
 
   for i=1, nb_poles do
@@ -700,8 +815,19 @@ function redraw()
   local sign = 1
   local x_offset = screen_w/2
 
-  screen.aa(0)
+  local p_pargin = 1
+  local p_radius = 10
 
+  -- poles - main osc
+  for i=1,params:get("voice_count") do
+    draw_poles((p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5), p_radius+p_pargin, p_radius, voices[i].hz, params:get("mod"), params:get("npolar_rot_amount"), voices[i].rot_angle, voices[i].active)
+  end
+
+  -- poles - mod osc
+  draw_mod_poles(screen_w-(p_radius+p_pargin)*(2 + 0.3), p_radius+p_pargin, p_radius, params:get("mod"), params:get("npolar_rot_amount"), rot_angle, params:get("npolar_rot_freq"))
+  draw_mod_poles(screen_w-(p_radius+p_pargin), p_radius+p_pargin, p_radius, params:get("sync_ratio"), params:get("npolar_rot_amount_sliced"), rot_angle_sliced, params:get("npolar_rot_freq_sliced"))
+
+  screen.aa(0)
   draw_scope_grid(screen_w, screen_h)
 
   -- mod wave
@@ -743,12 +869,6 @@ function redraw()
     sign = sign * -1
   end
   screen.stroke()
-
-  -- poles
-  local p_pargin = 1
-  local p_radius = 10
-  draw_poles(screen_w-(p_radius+p_pargin)*(2 + 0.3), p_radius+p_pargin, p_radius, params:get("mod"), params:get("npolar_rot_amount"), rot_angle, params:get("npolar_rot_freq"))
-  draw_poles(screen_w-(p_radius+p_pargin), p_radius+p_pargin, p_radius, params:get("sync_ratio"), params:get("npolar_rot_amount_sliced"), rot_angle_sliced, params:get("npolar_rot_freq_sliced"))
 
   -- metrics
   screen.move(0, screen_h)
