@@ -8,6 +8,8 @@
 local ControlSpec = require "controlspec"
 local Formatters = require "formatters"
 local MusicUtil = require "musicutil"
+local UI = require "ui"
+local EnvGraph = require "envgraph"
 
 local bleached = include("lib/bleached")
 
@@ -42,6 +44,17 @@ end
 S_LVL_MOD = 2
 
 CS_MIDLOWFREQ = ControlSpec.new(25, 1000, 'exp', 0, 440, "Hz")
+
+-- FIXME: still baseline volume even when amp sustain is at 0?!
+local DEFAULT_A = 0.55
+local DEFAULT_D = 0.3
+local DEFAULT_S = 0.5
+local DEFAULT_R = 1.0
+local ENV_ATTACK  = ControlSpec.new(0.002, 2, "lin", 0, DEFAULT_A, "s")
+local ENV_DECAY   = ControlSpec.new(0.002, 2, "lin", 0, DEFAULT_D, "s")
+local ENV_SUSTAIN = ControlSpec.new(0,     1, "lin", 0, DEFAULT_S, "")
+local ENV_RELEASE = ControlSpec.new(0.002, 2, "lin", 0, DEFAULT_R, "s")
+local ENVGRAPH_T_MAX = 0.3
 
 
 -- -------------------------------------------------------------------------
@@ -87,6 +100,16 @@ end
 function unallocate_voice(note_id)
   note_id_voice_map[note_id] = nil
 end
+
+local env_graph
+local fenv_graph
+
+
+-- -------------------------------------------------------------------------
+-- ui - pages
+
+local page_list = {'main', 'amp', 'filter', 'rot_mod', 'rot_mod_sliced'}
+local pages = UI.Pages.new(1, #page_list)
 
 
 -- -------------------------------------------------------------------------
@@ -150,6 +173,38 @@ end
 -- -------------------------------------------------------------------------
 -- controllers
 
+local function bleached_cc_main(row, pot, v, precision)
+  if row == 1 and pot == 1 then
+    params:set("freq", util.linexp(0, precision, CS_MIDLOWFREQ.minval, CS_MIDLOWFREQ.maxval, v))
+  elseif row == 1 and pot == 2 then
+    -- params:set("voice_count", util.round(util.linlin(0, precision, 1, 8, v)))
+    params:set("freq_sag", util.linlin(0, precision, 0, 1, v))
+    params:set("cutoff_sag", util.linlin(0, precision, 0, 1, v))
+  elseif row == 1 and pot == 3 then
+    params:set("cutoff", util.linexp(0, precision, ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval, v))
+  elseif row == 2 and pot == 1 then
+    params:set("npolar_rot_amount", util.linlin(0, precision, 0, 1, v))
+  elseif row == 2 and pot == 2 then
+    params:set("npolar_rot_freq", util.linexp(0, precision, ControlSpec.WIDEFREQ.minval, ControlSpec.WIDEFREQ.maxval, v))
+  elseif row == 2 and pot == 3 then
+    params:set("npolar_rot_amount_sliced", util.linlin(0, precision, 0, 1, v))
+  elseif row == 2 and pot == 4 then
+    params:set("npolar_rot_freq_sliced", util.linexp(0, precision, ControlSpec.WIDEFREQ.minval, ControlSpec.WIDEFREQ.maxval, v))
+  end
+end
+
+local function bleached_cc_amp(row, pot, v, precision)
+  if row == 2 and pot == 1 then
+    params:set("amp_attack", util.linlin(0, precision, ENV_ATTACK.minval, ENV_ATTACK.maxval, v))
+  elseif row == 2 and pot == 2 then
+    params:set("amp_decay", util.linlin(0, precision, ENV_DECAY.minval, ENV_DECAY.maxval, v))
+  elseif row == 2 and pot == 3 then
+    params:set("amp_sustain", util.linlin(0, precision, ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, v))
+  elseif row == 2 and pot == 4 then
+    params:set("amp_release", util.linlin(0, precision, ENV_RELEASE.minval, ENV_RELEASE.maxval, v))
+  end
+end
+
 local function bleached_cc_cb(midi_msg)
   has_bleached = true
 
@@ -168,23 +223,13 @@ local function bleached_cc_cb(midi_msg)
       precision = 16383
     end
 
-    if row == 1 and pot == 1 then
-      params:set("freq", util.linexp(0, precision, CS_MIDLOWFREQ.minval, CS_MIDLOWFREQ.maxval, v))
-    elseif row == 1 and pot == 2 then
-      -- params:set("voice_count", util.round(util.linlin(0, precision, 1, 8, v)))
-      params:set("freq_sag", util.linlin(0, precision, 0, 1, v))
-      params:set("cutoff_sag", util.linlin(0, precision, 0, 1, v))
-    elseif row == 1 and pot == 3 then
-      params:set("cutoff", util.linexp(0, precision, ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval, v))
-    elseif row == 2 and pot == 1 then
-      params:set("npolar_rot_amount", util.linlin(0, precision, 0, 1, v))
-    elseif row == 2 and pot == 2 then
-      params:set("npolar_rot_freq", util.linexp(0, precision, ControlSpec.WIDEFREQ.minval, ControlSpec.WIDEFREQ.maxval, v))
-    elseif row == 2 and pot == 3 then
-      params:set("npolar_rot_amount_sliced", util.linlin(0, precision, 0, 1, v))
-    elseif row == 2 and pot == 4 then
-      params:set("npolar_rot_freq_sliced", util.linexp(0, precision, ControlSpec.WIDEFREQ.minval, ControlSpec.WIDEFREQ.maxval, v))
+    local curr_page = page_list[pages.index]
+    if curr_page == 'main' then
+      bleached_cc_main(row, pot, v, precision)
+    elseif curr_page == 'amp' then
+      bleached_cc_amp(row, pot, v, precision)
     end
+
   end
 end
 
@@ -266,9 +311,38 @@ function init()
     screen.aa(1)
   end
 
+  -- --------------------------------
+  -- controlspecs
+
   local pct_control_on = controlspec.new(0, 1, "lin", 0, 1.0, "")
   local pct_control_off = controlspec.new(0, 1, "lin", 0, 0.0, "")
   local phase_control = controlspec.new(0, 2 * math.pi, "lin", 0, 0.0, "")
+
+  -- NB: those got chosen to mimic the ARP 2600
+  -- FIXME: ENV_SUSTAIN is too much "all or nothing" in terms of perceived volume
+  -- REVIEW: first redraw w/ actual values of env params instead of default?
+  env_graph = EnvGraph.new_adsr(0, 1, 0, 1,
+                                util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, DEFAULT_A),
+                                util.explin(ENV_DECAY.minval, ENV_DECAY.maxval, 0, ENVGRAPH_T_MAX, DEFAULT_D),
+                                util.linlin(ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, 0, 1, DEFAULT_S),
+                                util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, DEFAULT_R),
+                                1,-4
+  )
+  env_graph:set_position_and_size(8, 22, 49, 36)
+  env_graph:set_show_x_axis(true)
+
+  fenv_graph = EnvGraph.new_adsr(0, 1, 0, 1,
+                                 util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, DEFAULT_A),
+                                 util.explin(ENV_DECAY.minval, ENV_DECAY.maxval, 0, ENVGRAPH_T_MAX, DEFAULT_D),
+                                 util.linlin(ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, 0, 1, DEFAULT_S),
+                                 util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, DEFAULT_R),
+                                 1, -4)
+  fenv_graph:set_position_and_size(8, 22, 49, 36)
+  fenv_graph:set_show_x_axis(true)
+
+
+  -- --------------------------------
+  -- midi
 
   params:add{type = "number", id = "midi_device", name = "MIDI Device", min = 1, max = 4, default = 2, action = function(v)
                if m ~= nil then
@@ -282,7 +356,15 @@ function init()
   for i = 1, 16 do table.insert(MIDI_CHANNELS, i) end
   params:add{type = "option", id = "midi_channel", name = "MIDI Channel", options = MIDI_CHANNELS}
 
+
+  -- --------------------------------
+  -- global
+
   params:add{type = "number", id = "voice_count", name = "# voices", min = 1, max = 8, default = 8, action = engine.voice_count}
+
+
+  -- --------------------------------
+  params:add_separator("main osc", "main osc")
 
   params:add_trigger("random", "random")
   params:set_action("random",
@@ -296,16 +378,26 @@ function init()
                       screen_dirty=true
   end)
 
-  -- amp env
-  local ENV_ATTACK = ControlSpec.new(0.002, 5, "lin", 0, 0.55, "s")
-  local ENV_DECAY = ControlSpec.new(0.002, 10, "lin", 0, 0.3, "s")
-  local ENV_SUSTAIN = ControlSpec.new(0, 1, "lin", 0, 0.5, "")
-  local ENV_RELEASE = ControlSpec.new(0.002, 10, "lin", 0, 2, "s")
-  params:add{type = "control", id = "amp_offset", name = "Amp Offset", controlspec = pct_control_off, formatter = format_percent, action = engine.amp_offset_all}
-  params:add{type = "control", id = "amp_attack", name = "Amp Attack", controlspec = ENV_ATTACK, formatter = Formatters.format_secs, action = engine.attack_all}
-  params:add{type = "control", id = "amp_decay", name = "Amp Decay", controlspec = ENV_DECAY, formatter = Formatters.format_secs, action = engine.decay_all}
-  params:add{type = "control", id = "amp_sustain", name = "Amp Sustain", controlspec = ENV_SUSTAIN, action = engine.sustain}
-  params:add{type = "control", id = "amp_release", name = "Amp Release", controlspec = ENV_RELEASE, formatter = Formatters.format_secs, action = engine.release_all}
+  -- FIXME: should call recompute_effective_freq() after change of value!
+  -- use a clock instead?
+
+  params:add{type = "option", id = "index1", name = "index1", options = WAVESHAPES, action = function(v)
+               engine.index1_all(v-1)
+               screen_dirty = true
+  end}
+
+  params:add{type = "option", id = "index2", name = "index2", options = WAVESHAPES, action = function(v)
+               engine.index2_all(v-1)
+               screen_dirty = true
+  end}
+  params:add{type = "option", id = "index3", name = "index3", options = WAVESHAPES, action = function(v)
+               engine.index3_all(v-1)
+               screen_dirty = true
+  end}
+  params:add{type = "option", id = "index4", name = "index4", options = WAVESHAPES, action = function(v)
+               engine.index4_all(v-1)
+               screen_dirty = true
+  end}
 
   params:add{type = "control", id = "freq", name = "freq", controlspec = CS_MIDLOWFREQ, formatter = Formatters.format_freq,
              default = BASE_FREQ, action = function(v)
@@ -331,6 +423,10 @@ function init()
 
   params:add{type = "control", id = "freq_sag", name = "freq sag", controlspec = pct_control_off,
              default=0.1, action = engine.freq_sag_all}
+
+
+  -- --------------------------------
+  params:add_separator("mod osc", "mod osc")
 
   params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default = 3, action = function(v)
                engine.mod_all(v)
@@ -397,26 +493,9 @@ params:add{type = "control", id = "sync_phase", name = "sync_phase", min = 0, ma
                screen_dirty = true
 end}
 
--- FIXME: should call recompute_effective_freq() after!
--- use a clock instead
 
-params:add{type = "option", id = "index1", name = "index1", options = WAVESHAPES, action = function(v)
-               engine.index1_all(v-1)
-               screen_dirty = true
-end}
-
-params:add{type = "option", id = "index2", name = "index2", options = WAVESHAPES, action = function(v)
-               engine.index2_all(v-1)
-               screen_dirty = true
-end}
-params:add{type = "option", id = "index3", name = "index3", options = WAVESHAPES, action = function(v)
-               engine.index3_all(v-1)
-               screen_dirty = true
-end}
-params:add{type = "option", id = "index4", name = "index4", options = WAVESHAPES, action = function(v)
-               engine.index4_all(v-1)
-               screen_dirty = true
-end}
+  -- --------------------------------
+params:add_separator("filter", "filter")
 
 params:add{type = "control", id = "cutoff", name = "cutoff", controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq}
   params:set_action("cutoff", engine.cutoff_all)
@@ -429,8 +508,65 @@ params:add{type = "control", id = "cutoff", name = "cutoff", controlspec = Contr
   params:set_action("res", engine.resonance_all)
 
   local pct_control_bipolar = controlspec.new(-1, 1, "lin", 0, 0.5, "")
-  params:add{type = "control", id = "fktrack", name = "filter kbd track", controlspec = pct_control_bipolar}
-  params:set_action("fktrack", engine.fktrack_all)
+  params:add{type = "control", id = "fktrack", name = "filter kbd track", controlspec = pct_control_bipolar, action = engine.fktrack_all}
+
+  params:add{type = "control", id = "fenv_pct", name = "filter env %", controlspec = pct_control_on, formatter = fmt_percent, action = engine.fenv_a_all}
+
+
+  -- --------------------------------
+  params:add_separator("amp env", "amp env")
+
+  params:add{type = "control", id = "amp_offset", name = "Amp Offset", controlspec = pct_control_off, formatter = format_percent, action = engine.amp_offset_all}
+  params:add{type = "control", id = "amp_attack", name = "Amp Attack", controlspec = ENV_ATTACK, formatter = Formatters.format_secs, action = function(v)
+               engine.attack_all(v)
+               local nv = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, v)
+               env_graph:edit_adsr(nv, nil, nil, nil)
+               if page_list[pages.index] == 'amp' then
+                 screen_dirty = true
+               end
+  end}
+  params:add{type = "control", id = "amp_decay", name = "Amp Decay", controlspec = ENV_DECAY, formatter = Formatters.format_secs, action = function(v)
+               engine.decay_all(v)
+               local nv = util.explin(ENV_DECAY.minval, ENV_DECAY.maxval, 0, ENVGRAPH_T_MAX, v)
+               env_graph:edit_adsr(nil, nv, nil, nil)
+               if page_list[pages.index] == 'amp' then
+                 screen_dirty = true
+               end
+  end}
+  params:add{type = "control", id = "amp_sustain", name = "Amp Sustain", controlspec = ENV_SUSTAIN, action = function(v)
+               engine.sustain_all(v)
+               local nv = util.linlin(ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, 0, 1, v)
+               env_graph:edit_adsr(nil, nil, nv, nil)
+               if page_list[pages.index] == 'amp' then
+                 screen_dirty = true
+               end
+  end}
+  params:add{type = "control", id = "amp_release", name = "Amp Release", controlspec = ENV_RELEASE, formatter = Formatters.format_secs, action = function(v)
+               engine.release_all(v)
+               local nv = util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, v)
+               env_graph:edit_adsr(nil, nil, nil, nv)
+               if page_list[pages.index] == 'amp' then
+                 screen_dirty = true
+               end
+  end}
+
+
+  -- --------------------------------
+  params:add_separator("filter env", "filter env")
+
+  -- filter env
+  params:add{type = "control", id = "filter_attack", name = "Filter Attack", controlspec = ENV_ATTACK, formatter = Formatters.format_secs,
+             default = 1.0,
+             action = engine.fattack_all}
+  params:add{type = "control", id = "filter_decay", name = "Filter Decay", controlspec = ENV_DECAY, formatter = Formatters.format_secs, action = engine.fdecay_all}
+  params:add{type = "control", id = "filter_sustain", name = "Filter Sustain", controlspec = ENV_SUSTAIN, action = engine.fsustain_all}
+  params:add{type = "control", id = "filter_release", name = "Filter Release", controlspec = ENV_RELEASE, formatter = Formatters.format_secs,
+             default = 4.0,
+             action = engine.frelease_all}
+
+
+  -- --------------------------------
+  params:add_separator("vintage", "vintage")
 
   local pct_sat_threshold = controlspec.new(0.1, 1, "lin", 0, 0.5, "")
   params:add{type = "control", id = "sat_threshold", name = "sat/comp threshold", controlspec = pct_sat_threshold}
@@ -489,11 +625,14 @@ end
 
 function enc(n, d)
   local s = math.abs(d) / d
-  if n == 2 then
+  if n == 1 then
+    pages:set_index_delta(d, false)
+  elseif n == 2 then
     params:set("mod", params:get("mod") + s)
   elseif n == 3 then
     params:set("sync_ratio", params:get("sync_ratio") + s)
   end
+  screen_dirty = true
 end
 
 local k1 = false
@@ -638,7 +777,7 @@ function draw_mod_wave(x, w, y, a, sign, dir)
   screen.level(15)
 end
 
-function draw_poles(x, y, radius, speed, nb_poles, amount, rot_angle, is_active)
+function draw_poles(x, y, radius, speed, rot_angle, is_active)
   local l = is_active and 15 or 5
   screen.level(0)
   screen.move(x + radius + 2, y)
@@ -650,6 +789,9 @@ function draw_poles(x, y, radius, speed, nb_poles, amount, rot_angle, is_active)
   screen.circle(x, y, radius)
   screen.stroke()
 
+  local nb_poles = 2
+  local amount = 0
+
   if speed > ROT_FPS/2 then
     screen.level(util.round(util.linlin(0, l, 2, 10, nb_poles)))
     local ratio = speed / (ROT_FPS/2)
@@ -660,8 +802,7 @@ function draw_poles(x, y, radius, speed, nb_poles, amount, rot_angle, is_active)
   end
 
   for i=1, nb_poles do
-    local r2 = radius * linlin(0, 1, 1, amp_for_pole(i, nb_poles, rot_angle, 1, dir), amount)
-    r2 = math.abs(r2)
+    local r2 = radius
 
     local angle = (i-1) * 2 * math.pi / nb_poles
     local angle2 = angle/(2 * math.pi) + rot_angle
@@ -798,10 +939,8 @@ function amp_for_pole(n, mod, rot_angle, a, dir)
   end
 end
 
-function redraw()
+function draw_page_main()
   local screen_w, screen_h = screen_size()
-
-  screen.clear()
 
   local sync_ratio = params:get("sync_ratio") -- nb of sub-segments
   local mod = params:get("mod")
@@ -820,7 +959,7 @@ function redraw()
 
   -- poles - main osc
   for i=1,params:get("voice_count") do
-    draw_poles((p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5), p_radius+p_pargin, p_radius, voices[i].hz, params:get("mod"), params:get("npolar_rot_amount"), voices[i].rot_angle, voices[i].active)
+    draw_poles((p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5), p_radius+p_pargin, p_radius, voices[i].hz, voices[i].rot_angle, voices[i].active)
   end
 
   -- poles - mod osc
@@ -877,6 +1016,43 @@ function redraw()
     msg = msg .. " -> " .. (effective_freq * effective_period/2)
   end
   screen.text(msg)
+end
+
+function draw_page_rot_mod()
+  local screen_w, screen_h = screen_size()
+
+  local p_pargin = 1
+  local p_radius = 10
+
+  draw_mod_poles(screen_w-(p_radius+p_pargin)*(2 + 0.3), p_radius+p_pargin, p_radius, params:get("mod"), params:get("npolar_rot_amount"), rot_angle, params:get("npolar_rot_freq"))
+end
+
+function draw_page_rot_mod_sliced()
+  local screen_w, screen_h = screen_size()
+
+  local p_pargin = 1
+  local p_radius = 10
+
+  draw_mod_poles(screen_w-(p_radius+p_pargin), p_radius+p_pargin, p_radius, params:get("sync_ratio"), params:get("npolar_rot_amount_sliced"), rot_angle_sliced, params:get("npolar_rot_freq_sliced"))
+end
+
+function redraw()
+  screen.clear()
+
+  pages:redraw()
+
+  local curr_page = page_list[pages.index]
+  if curr_page == 'main' then
+    draw_page_main()
+  elseif curr_page == 'amp' then
+    env_graph:redraw()
+  elseif curr_page == 'filter' then
+    fenv_graph:redraw()
+  elseif curr_page == 'rot_mod' then
+    draw_page_rot_mod()
+  elseif curr_page == 'rot_mod_sliced' then
+    draw_page_rot_mod_sliced()
+  end
 
   screen.update()
   screen_dirty = false
