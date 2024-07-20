@@ -123,7 +123,7 @@ Engine_Farrago : CroneEngine {
 
 			fenv = EnvGen.kr(Env.adsr(fattack, fdecay, fsustain, frelease), gate, doneAction: 0) * fenv_a;
 
-			instantCutoff = (cutoff2 * (1 + (fktrack * 2 * hzTrack) + (fenv * 2 * hzTrack))).clip(20, 20000);
+			instantCutoff = (cutoff2 * (1 + (fktrack * 2 * hzTrack)) + (fenv * 15000)).clip(20, 20000);
 
 			filtered = MoogFF.ar(in: phased,
 				freq: instantCutoff,
