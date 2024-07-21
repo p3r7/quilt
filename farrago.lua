@@ -8,8 +8,10 @@
 local ControlSpec = require "controlspec"
 local Formatters = require "formatters"
 local MusicUtil = require "musicutil"
+
 local UI = require "ui"
 local EnvGraph = require "envgraph"
+local FilterGraph = require "filtergraph"
 
 local bleached = include("lib/bleached")
 
@@ -103,6 +105,7 @@ end
 
 local env_graph
 local fenv_graph
+local f_graph
 
 
 -- -------------------------------------------------------------------------
@@ -208,6 +211,8 @@ end
 local function bleached_cc_filter(row, pot, v, precision)
   if row == 1 and pot == 1 then
     params:set("fenv_pct", util.linlin(0, precision, 0, 1, v))
+  elseif row == 1 and pot == 2 then
+    params:set("res", util.linlin(0, precision, 0, 4, v))
   elseif row == 1 and pot == 3 then
     params:set("cutoff", util.linexp(0, precision, ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval, v))
   elseif row == 2 and pot == 1 then
@@ -336,6 +341,10 @@ function init()
   local pct_control_off = controlspec.new(0, 1, "lin", 0, 0.0, "")
   local phase_control = controlspec.new(0, 2 * math.pi, "lin", 0, 0.0, "")
 
+
+  -- --------------------------------
+  -- Ui graphs
+
   -- NB: those got chosen to mimic the ARP 2600
   -- FIXME: ENV_SUSTAIN is too much "all or nothing" in terms of perceived volume
   -- REVIEW: first redraw w/ actual values of env params instead of default?
@@ -357,6 +366,13 @@ function init()
                                  1, -4)
   fenv_graph:set_position_and_size(8, 22, 49, 36)
   fenv_graph:set_show_x_axis(true)
+
+  f_graph = FilterGraph.new(ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval, -60, 32.5,
+                            "lowpass",
+                            12,
+                            2000,
+                            0)
+  f_graph:set_position_and_size(64+8, 22, 49, 36)
 
 
   -- --------------------------------
@@ -520,15 +536,27 @@ params:add{type = "control", id = "fenv_pct", name = "filter env %", controlspec
            action = engine.fenv_a_all}
 params:add{type = "control", id = "fktrack", name = "filter kbd track", controlspec = pct_control_bipolar, action = engine.fktrack_all}
 
-params:add{type = "control", id = "cutoff", name = "cutoff", controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq}
-  params:set_action("cutoff", engine.cutoff_all)
+  params:add{type = "control", id = "cutoff", name = "cutoff", controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
+             action = function(v)
+               engine.cutoff_all(v)
+               f_graph:edit(nil, nil, v)
+               if page_list[pages.index] == 'filter' then
+                 screen_dirty = true
+               end
+  end}
 
   params:add{type = "control", id = "cutoff_sag", name = "cutoff sag", controlspec = pct_control_off,
              default=0.1, action = engine.cutoff_sag_all}
 
   local moog_res = controlspec.new(0, 4, "lin", 0, 0.0, "")
-  params:add{type = "control", id = "res", name = "res", controlspec = moog_res}
-  params:set_action("res", engine.resonance_all)
+  params:add{type = "control", id = "res", name = "res", controlspec = moog_res,
+             action = function(v)
+               engine.resonance_all(v)
+               f_graph:edit(nil, nil, nil, v/moog_res.maxval)
+               if page_list[pages.index] == 'filter' then
+                 screen_dirty = true
+               end
+  end}
 
 
 
@@ -1102,6 +1130,7 @@ function redraw()
     env_graph:redraw()
   elseif curr_page == 'filter' then
     fenv_graph:redraw()
+    f_graph:redraw()
   elseif curr_page == 'rot_mod' then
     draw_page_rot_mod()
   elseif curr_page == 'rot_mod_sliced' then
