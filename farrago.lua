@@ -120,7 +120,7 @@ function allocate_voice(note_num)
 
   note_id_voice_map[note_id] = curr_voice_id
   next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
-  return note_id
+  return note_id, curr_voice_id
 end
 
 function unallocate_voice(note_num)
@@ -298,8 +298,7 @@ end
 -- notes
 
 function note_on(note_num, vel)
-  local note_id = allocate_voice(note_num)
-  local voice_id = note_id_voice_map[note_id]
+  local note_id, voice_id = allocate_voice(note_num)
   if voice_id == nil then
     return
   end
