@@ -74,6 +74,18 @@ PITCH_COMPENSATION_MOD = true
 -- PITCH_COMPENSATION_SYNC = true
 PITCH_COMPENSATION_SYNC = false
 
+rot_angle = 0
+rot_angle_sliced = 0
+
+has_bleached = false
+
+
+-- -------------------------------------------------------------------------
+-- state - voices
+
+-- NB: we use midi note id as to track active voices
+-- we use prepend it w/ a prefix to allow more than one voice to play the same note
+
 voices = {}
 curr_voice_id = 1
 next_voice_id = 1
@@ -88,19 +100,43 @@ for i=1,NB_VOICES do
   }
 end
 
-rot_angle = 0
-rot_angle_sliced = 0
-
-has_bleached = false
-
-function allocate_voice(note_id)
-  curr_voice_id = next_voice_id;
-  note_id_voice_map[note_id] = curr_voice_id
-  next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
+function nb_active_voice_same_note(note_id)
+  local count = 0
+  for vnote_id, voice_id in pairs(note_id_voice_map) do
+    if (vnote_id % 1000) == (note_id % 1000) then
+      count = count + 1
+    end
+  end
+  return count
 end
 
-function unallocate_voice(note_id)
+function allocate_voice(note_num)
+  curr_voice_id = next_voice_id;
+
+  local id_prefix = nb_active_voice_same_note(note_num) + 1
+  local note_id = id_prefix * 1000 + note_num
+
+  print("allocated voice "..note_id)
+
+  note_id_voice_map[note_id] = curr_voice_id
+  next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
+  return note_id
+end
+
+function unallocate_voice(note_num)
+  local id_prefix = nb_active_voice_same_note(note_num)
+  local note_id = id_prefix * 1000 + note_num
+
+  print("unallocated voice "..note_id)
+
+  local voice_id = note_id_voice_map[note_id]
+  -- if voice_id == nil then
+  --   return
+  -- end
   note_id_voice_map[note_id] = nil
+  voices[voice_id].active = false
+  voices[voice_id].vel = 0
+  return note_id, voice_id
 end
 
 local env_graph
@@ -262,8 +298,8 @@ end
 -- notes
 
 function note_on(note_num, vel)
-  allocate_voice(note_num)
-  local voice_id = note_id_voice_map[note_num]
+  local note_id = allocate_voice(note_num)
+  local voice_id = note_id_voice_map[note_id]
   if voice_id == nil then
     return
   end
@@ -271,18 +307,12 @@ function note_on(note_num, vel)
   voices[voice_id].active = true
   voices[voice_id].hz = hz
   voices[voice_id].vel = vel
-  engine.noteOn(note_num, hz, vel)
+  engine.noteOn(note_id, hz, vel)
 end
 
 function note_off(note_num)
-  local voice_id =  note_id_voice_map[note_num]
-  if voice_id == nil then
-    return
-  end
-  voices[voice_id].active = false
-  voices[voice_id].vel = 0
-  unallocate_voice(note_num)
-  engine.noteOff(note_num)
+  local note_id, voice_id = unallocate_voice(note_num)
+  engine.noteOff(note_id)
 end
 
 function aftertouch(v)
