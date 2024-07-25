@@ -12,9 +12,9 @@ Engine_Farrago : CroneEngine {
 			vel = 0.5,
 			freq = 200,
 			freq_sag = 0.1,
-			mod = 3,
-			syncRatio = 1,
-			syncPhase = 0.0,
+			vib_rate = 5,
+			vib_depth = 0.0,
+			// segmented oscilators
 			index1 = 0.0,
 			index2 = 0.0,
 			index3 = 0.0,
@@ -24,6 +24,9 @@ Engine_Farrago : CroneEngine {
 			amp3 = 0.5,
 			amp4 = 0.5,
 			// npolar projection
+			mod = 3,
+			syncRatio = 1,
+			syncPhase = 0.0,
 			npolarProj = 1.0,
 			npolarRotFreq = 10,
 			npolarRotFreq_sag = 0.1,
@@ -41,12 +44,18 @@ Engine_Farrago : CroneEngine {
 			cutoff = 1200,
 			cutoff_sag = 0.1,
 			resonance = 0.0,
+			// offness
+			phase_offset = 0.0,
+			pitch_offness_max = 0.0,
+			pitch_offness_pct = 0.0,
+			cutoff_offness_max = 0.0,
+			cutoff_offness_pct = 0.0,
 			// saturation/compression
 			sat_threshold = 0.5;
 
 			// frequencies
-			var semitoneDiff, hzTrack;
-			var freqSagLfo, freq2;
+			var semitoneDiff, hzTrack, fsemitoneDiff;
+			var vibrato, freqSagLfo, freq2;
 			var cutoffSagLfo, cutoff2;
 			var npolarRotFreqSagLfo, npolarRotFreq2;
 			var npolarRotFreqSlicedSagLfo, npolarRotFreqSliced2;
@@ -66,12 +75,15 @@ Engine_Farrago : CroneEngine {
 			// computed modulation index, associated phaser signals
 			var modphase, phase, phase2, phaseSliced, phaseSliced2;
 
+			vibrato = SinOsc.kr(vib_rate, 0, vib_depth);
+
 			// NB: this sounds meh and is heavy in processing...
 			// TODO: implement standard vibrrato w/ slightly detuned voices
 
-			// semitoneDiff = freq * (2 ** (1/12) - 1);
+			semitoneDiff = freq * (2 ** (1/12) - 1);
+			fsemitoneDiff = cutoff * (2 ** (1/12) - 1);
 			// freqSagLfo = Lag.kr(LFNoise1.kr(1), 0.1) * freq_sag * semitoneDiff;
-			// freq2 = freq + freqSagLfo;
+			// freq2 = freq + freqSagLfo + vibrato;
 
 			// cutoffSagLfo = Lag.kr(LFNoise1.kr(1), 0.1) * cutoff_sag * semitoneDiff;
 			// cutoff2 = cutoff + cutoffSagLfo;
@@ -82,8 +94,8 @@ Engine_Farrago : CroneEngine {
 			// npolarRotFreqSlicedSagLfo = Lag.kr(LFNoise1.kr(1), 0.1) * npolarRotFreqSliced_sag * semitoneDiff;
 			// npolarRotFreqSliced2 = npolarRotFreqSliced + npolarRotFreqSlicedSagLfo;
 
-			freq2 = freq;
-			cutoff2 = cutoff;
+			freq2 = freq + vibrato + ((semitoneDiff/10) * pitch_offness_max * pitch_offness_pct);
+			cutoff2 = cutoff + (7000 * cutoff_offness_max * cutoff_offness_pct);
 			npolarRotFreq2 = npolarRotFreq;
 			npolarRotFreqSliced2 = npolarRotFreqSliced;
 
@@ -123,7 +135,7 @@ Engine_Farrago : CroneEngine {
 
 			fenv = EnvGen.kr(Env.adsr(fattack, fdecay, fsustain, frelease), gate, doneAction: 0) * fenv_a;
 
-			instantCutoff = (cutoff2 * (1 + (fktrack * 2 * hzTrack)) + (fenv * 15000)).clip(20, 20000);
+			instantCutoff = (cutoff2 * (1 + (fktrack * 2 * hzTrack)) + (fenv * 7000)).clip(20, 20000);
 
 			filtered = MoogFF.ar(in: phased,
 				freq: instantCutoff,
@@ -156,9 +168,14 @@ Engine_Farrago : CroneEngine {
 			\freq, 80,
 			\freq_sag, 0.1,
 			\vel, 0.5,
-			\mod, 3,
-			\syncRatio, 1,
-			\syncPhase, 0.0,
+			\vib_rate, 5,
+			\vib_depth, 0.0,
+			// offness
+			\pitch_offness_max, 0.0,
+			\pitch_offness_pct, 0.0,
+			\cutoff_offness_max, 0.0,
+			\cutoff_offness_pct, 0.0,
+			// segmented oscilators
 			\index1, 0.0,
 			\index2, 0.0,
 			\index3, 0.0,
@@ -168,6 +185,9 @@ Engine_Farrago : CroneEngine {
 			\amp3, 0.5,
 			\amp4, 0.5,
 			// npolar projection
+			\mod, 3,
+			\syncRatio, 1,
+			\syncPhase, 0.0,
 			\npolarProj, 1.0,
 			\npolarRotFreq, 10,
 			\npolarRotFreq_sag, 0.1,

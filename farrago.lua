@@ -55,7 +55,7 @@ local DEFAULT_R = 1.0
 local ENV_ATTACK  = ControlSpec.new(0.002, 2, "lin", 0, DEFAULT_A, "s")
 local ENV_DECAY   = ControlSpec.new(0.002, 2, "lin", 0, DEFAULT_D, "s")
 local ENV_SUSTAIN = ControlSpec.new(0,     1, "lin", 0, DEFAULT_S, "")
-local ENV_RELEASE = ControlSpec.new(0.002, 2, "lin", 0, DEFAULT_R, "s")
+local ENV_RELEASE = ControlSpec.new(0.002, 4, "lin", 0, DEFAULT_R, "s")
 local ENVGRAPH_T_MAX = 0.3
 
 
@@ -116,8 +116,6 @@ function allocate_voice(note_num)
   local id_prefix = nb_active_voice_same_note(note_num) + 1
   local note_id = id_prefix * 1000 + note_num
 
-  print("allocated voice "..note_id)
-
   note_id_voice_map[note_id] = curr_voice_id
   next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
   return note_id, curr_voice_id
@@ -126,8 +124,6 @@ end
 function unallocate_voice(note_num)
   local id_prefix = nb_active_voice_same_note(note_num)
   local note_id = id_prefix * 1000 + note_num
-
-  print("unallocated voice "..note_id)
 
   local voice_id = note_id_voice_map[note_id]
   -- if voice_id == nil then
@@ -345,7 +341,7 @@ end
 -- -------------------------------------------------------------------------
 -- init
 
-local clock_redraw, clock_rot
+local clock_redraw, clock_rot, clock_env
 
 function fmt_phase(param)
   return param:get() .. "°"
@@ -368,7 +364,10 @@ function init()
 
   local pct_control_on = controlspec.new(0, 1, "lin", 0, 1.0, "")
   local pct_control_off = controlspec.new(0, 1, "lin", 0, 0.0, "")
+  local pct_control_bipolar = controlspec.new(-1, 1, "lin", 0, 0.0, "")
   local phase_control = controlspec.new(0, 2 * math.pi, "lin", 0, 0.0, "")
+  local vib_rate_control = controlspec.new(0, 30, "lin", 0, 10.0, "")
+  local vib_depth_control = controlspec.new(0, 10, "lin", 0, 0.0, "")
 
 
   -- --------------------------------
@@ -463,7 +462,7 @@ function init()
   end}
 
   params:add{type = "control", id = "freq", name = "freq", controlspec = CS_MIDLOWFREQ, formatter = Formatters.format_freq,
-             default = BASE_FREQ, action = function(v)
+             action = function(v)
                BASE_FREQ = v
                local mod = params:get("mod")
 
@@ -483,9 +482,18 @@ function init()
 
                voices[curr_voice_id].hz = FREQ
   end}
+  -- params:set("freq", BASE_FREQ)
 
   params:add{type = "control", id = "freq_sag", name = "freq sag", controlspec = pct_control_off,
-             default=0.1, action = engine.freq_sag_all}
+             action = engine.freq_sag_all}
+  params:set("freq_sag", 0.1)
+
+
+  params:add{type = "control", id = "vib_rate", name = "vibrato rate", controlspec = vib_rate_control,
+             action = engine.vib_rate_all}
+
+  params:add{type = "control", id = "vib_depth", name = "vibrato depth", controlspec = vib_depth_control,
+             action = engine.vib_depth_all}
 
 
   -- --------------------------------
@@ -514,15 +522,17 @@ function init()
 
 params:add{type = "control", id = "npolar_rot_amount", name = "rot amount", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProj_all}
 params:add{type = "control", id = "npolar_rot_freq", name = "rot freq", controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
-           default = 1, action = engine.npolarRotFreq_all}
+             action = engine.npolarRotFreq_all}
 params:add{type = "control", id = "npolar_rot_freq_sag", name = "rot freq sag", controlspec = pct_control_off,
-           default = 0.1, action = engine.npolarRotFreq_sag_all}
+             action = engine.npolarRotFreq_sag_all}
+params:set("npolar_rot_freq_sag", 0.1)
 
 params:add{type = "control", id = "npolar_rot_amount_sliced", name = "rot amount sliced", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProjSliced_all}
 params:add{type = "control", id = "npolar_rot_freq_sliced", name = "rot freq sliced", controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
-           default = 1, action = engine.npolarRotFreqSliced_all}
-params:add{type = "control", id = "npolar_rot_freq_sag", name = "rot freq sag", controlspec = pct_control_off,
-           default = 0.1, action = engine.npolarRotFreqSliced_sag_all}
+             action = engine.npolarRotFreqSliced_all}
+params:add{type = "control", id = "npolar_rot_freq_sliced_sag", name = "rot freq sliced sag", controlspec = pct_control_off,
+           action = engine.npolarRotFreqSliced_sag_all}
+params:set("npolar_rot_freq_sliced_sag", 0.1)
 
 params:add{type = "number", id = "sync_ratio", name = "sync_ratio", min = 1, max = 10, default = 1,
            action = function(v)
@@ -549,9 +559,9 @@ params:add{type = "number", id = "sync_ratio", name = "sync_ratio", min = 1, max
              screen_dirty = true
 end}
 
-params:add{type = "control", id = "sync_phase", name = "sync_phase", min = 0, max = 360, default = 0, formatter = fmt_phase,
-           action = function(v)
-             local a = util.linlin(0, 360, 0, 2 * math.pi, v)
+  params:add{type = "number", id = "sync_phase", name = "sync_phase", min = 0, max = 360, default = 0, formatter = fmt_phase,
+             action = function(v)
+               local a = util.linlin(0, 360, 0, 2 * math.pi, v)
                engine.syncPhase_all(a)
                screen_dirty = true
 end}
@@ -560,10 +570,12 @@ end}
   -- --------------------------------
 params:add_separator("filter", "filter")
 
-params:add{type = "control", id = "fenv_pct", name = "filter env %", controlspec = pct_control_on, formatter = fmt_percent,
-           default = 0.2,
-           action = engine.fenv_a_all}
-params:add{type = "control", id = "fktrack", name = "filter kbd track", controlspec = pct_control_bipolar, action = engine.fktrack_all}
+  params:add{type = "control", id = "fenv_pct", name = "filter env %", controlspec = pct_control_off, formatter = fmt_percent,
+             action = engine.fenv_a_all}
+  params:set("fenv_pct", 0.2)
+
+  params:add{type = "control", id = "fktrack", name = "filter kbd track", controlspec = pct_control_bipolar, action = engine.fktrack_all}
+  params:set("fktrack", 0.2)
 
   params:add{type = "control", id = "cutoff", name = "cutoff", controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
              action = function(v)
@@ -575,7 +587,8 @@ params:add{type = "control", id = "fktrack", name = "filter kbd track", controls
   end}
 
   params:add{type = "control", id = "cutoff_sag", name = "cutoff sag", controlspec = pct_control_off,
-             default=0.1, action = engine.cutoff_sag_all}
+             action = engine.cutoff_sag_all}
+  params:set("cutoff_sag", 0.1)
 
   local moog_res = controlspec.new(0, 4, "lin", 0, 0.0, "")
   params:add{type = "control", id = "res", name = "res", controlspec = moog_res,
@@ -637,12 +650,11 @@ params:add{type = "control", id = "fktrack", name = "filter kbd track", controls
 
   -- filter env
   params:add{type = "control", id = "filter_attack", name = "Filter Attack", controlspec = ENV_ATTACK, formatter = Formatters.format_secs,
-             default = 1.0,
-             action = function(v)
-               engine.fdecay_all(v)
-               local nv = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, v)
-               fenv_graph:edit_adsr(nv, nil, nil, nil)
-               if page_list[pages.index] == 'filter' then
+action = function(v)
+  engine.fdecay_all(v)
+  local nv = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, v)
+  fenv_graph:edit_adsr(nv, nil, nil, nil)
+  if page_list[pages.index] == 'filter' then
                  screen_dirty = true
                end
   end}
@@ -665,64 +677,100 @@ params:add{type = "control", id = "fktrack", name = "filter kbd track", controls
                end
   end}
   params:add{type = "control", id = "filter_release", name = "Filter Release", controlspec = ENV_RELEASE, formatter = Formatters.format_secs,
-             default = 4.0,
-             action = function(v)
-               engine.frelease_all(v)
-               local nv = util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, v)
-               fenv_graph:edit_adsr(nil, nil, nil, nv)
-               if page_list[pages.index] == 'filter' then
+action = function(v)
+  engine.frelease_all(v)
+  local nv = util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, v)
+  fenv_graph:edit_adsr(nil, nil, nil, nv)
+  if page_list[pages.index] == 'filter' then
                  screen_dirty = true
                end
   end}
+  params:set("filter_attack", 1.0)
+  params:set("filter_release", 4.0)
 
 
   -- --------------------------------
   params:add_separator("vintage", "vintage")
 
   local pct_sat_threshold = controlspec.new(0.1, 1, "lin", 0, 0.5, "")
-  params:add{type = "control", id = "sat_threshold", name = "sat/comp threshold", controlspec = pct_sat_threshold}
-  params:set_action("sat_threshold", engine.sat_threshold_all)
+params:add{type = "control", id = "sat_threshold", name = "sat/comp threshold", controlspec = pct_sat_threshold, action = engine.sat_threshold_all}
 
-  -- params:set("index1", 2)
-  -- params:set("index2", 2)
-  -- params:set("index3", 2)
-  -- params:set("index4", 2)
+params:add{type = "control", id = "pitch_offness", name = "pitch offness", controlspec = pct_control_off,
+           action = engine.pitch_offness_pct_all}
 
-  -- params:set("index1", 3)
-  -- params:set("index2", 3)
-  -- params:set("index3", 3)
-  -- params:set("index4", 3)
+params:add{type = "control", id = "cutoff_offness", name = "cutoff offness", controlspec = pct_control_off,
+           action = engine.cutoff_offness_pct_all}
 
-  params:bang()
+for i=1,NB_VOICES do
+  params:add{type = "control", id = "pitch_offness_max_"..i, name = "max pitch offness #"..i, controlspec = pct_control_bipolar,
+             action = function(v)
+               engine.pitch_offness_max(i, v)
+  end}
+end
+for i=1,NB_VOICES do
+  params:add{type = "control", id = "cutoff_offness_max_"..i, name = "max cutoff offness #"..i, controlspec = pct_control_bipolar,
+             action = function(v)
+               engine.cutoff_offness_max(i, v)
+  end}
+end
 
-  -- params:set("index1", 1)
-  -- params:set("index2", 1)
-  -- params:set("index3", 1)
-  -- params:set("index4", 1)
 
-  -- params:set("index1", 4)
-  -- params:set("index2", 4)
-  -- params:set("index3", 4)
-  -- params:set("index4", 4)
+-- --------------------------------
 
-  bleached.init(bleached_cc_cb)
-  bleached.switch_cc_mode(bleached.M_CC14)
+for i=1,NB_VOICES do
+  local sign = (math.random(2) == 2) and 1 or -1
+  params:set("pitch_offness_max_"..i, sign * (math.random(100+1)-1)/100)
+  sign = (math.random(2) == 2) and 1 or -1
+  params:set("cutoff_offness_max_"..i, sign * (math.random(100+1)-1)/100)
+end
+
+-- params:set("index1", 2)
+-- params:set("index2", 2)
+-- params:set("index3", 2)
+-- params:set("index4", 2)
+
+-- params:set("index1", 3)
+-- params:set("index2", 3)
+-- params:set("index3", 3)
+-- params:set("index4", 3)
+
+params:bang()
+
+-- params:set("index1", 1)
+-- params:set("index2", 1)
+-- params:set("index3", 1)
+-- params:set("index4", 1)
+
+-- params:set("index1", 4)
+-- params:set("index2", 4)
+-- params:set("index3", 4)
+-- params:set("index4", 4)
+
+bleached.init(bleached_cc_cb)
+bleached.switch_cc_mode(bleached.M_CC14)
 
 clock_redraw = clock.run(function()
     while true do
-        clock.sleep(1/FPS)
-        if screen_dirty then
-          redraw()
-        end
+      clock.sleep(1/FPS)
+      if screen_dirty then
+        redraw()
       end
-  end)
+    end
+end)
 
-  clock_rot = clock.run(function()
-      while true do
-        clock.sleep(1/ROT_FPS)
-        lfo_tick()
-      end
-  end)
+clock_rot = clock.run(function()
+    while true do
+      clock.sleep(1/ROT_FPS)
+        rot_tick()
+    end
+end)
+
+-- clock_env = clock.run(function()
+--     while true do
+--       clock.sleep(1/ROT_FPS)
+--       env_tick()
+--     end
+-- end)
 
 end
 
@@ -805,9 +853,14 @@ end
 
 
 -- -------------------------------------------------------------------------
--- LFOs
+-- display recalculations
 
-function lfo_tick()
+function env_tick()
+  -- TODO: recompute cutoff
+  -- TODO: recompute amp
+end
+
+function rot_tick()
   local tick = (1 / ROT_FPS) * params:get("npolar_rot_freq")
   rot_angle = rot_angle + tick
   while rot_angle > 1 do
