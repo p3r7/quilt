@@ -44,6 +44,8 @@ Engine_Farrago : CroneEngine {
 			cutoff = 1200,
 			cutoff_sag = 0.1,
 			resonance = 0.0,
+			// panning
+			pan = 0,
 			// offness
 			phase_offset = 0.0,
 			pitch_offness_max = 0.0,
@@ -155,7 +157,7 @@ Engine_Farrago : CroneEngine {
 				relaxTime: 0.1 // fast release
 			);
 
-			Out.ar(0, compressed ! 2);
+			Out.ar(0, Pan2.ar(compressed, pan));
 		}).add;
 
 		def.send(server);
@@ -211,6 +213,8 @@ Engine_Farrago : CroneEngine {
 			\cutoff, 1200,
 			\cutoff_sag, 0.1,
 			\resonance, 0.0,
+			// panning
+			\pan, 0.0,
 			// sat/comp
 			\sat_threshold, 0.5
 		]);
