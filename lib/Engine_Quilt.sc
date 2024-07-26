@@ -1,4 +1,4 @@
-Engine_Farrago : CroneEngine {
+Engine_Quilt : CroneEngine {
 	var <synth;
 	var params;
 
@@ -6,7 +6,7 @@ Engine_Farrago : CroneEngine {
 		var server = Crone.server;
 		var def;
 
-		def = SynthDef(\Farrago, {
+		def = SynthDef(\Quilt, {
 			arg out = 0,
 			gate = 0,
 			vel = 0.5,
@@ -163,8 +163,7 @@ Engine_Farrago : CroneEngine {
 		def.send(server);
 		server.sync;
 
-		// synth = Synth.new(\Farrago, [\out, context.out_b], target: context.xg);
-		synth = PolyDef.new(\Farrago, context, 8);
+		synth = PolyDef.new(\Quilt, context, 8);
 
 		params = Dictionary.newFrom([
 			\freq, 80,

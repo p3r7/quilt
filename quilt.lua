@@ -1,4 +1,4 @@
--- farrago.
+-- quilt.
 -- @eigen
 
 
@@ -17,7 +17,7 @@ local bleached = include("lib/bleached")
 
 include("lib/core")
 
-engine.name = "Farrago"
+engine.name = "Quilt"
 
 
 -- -------------------------------------------------------------------------

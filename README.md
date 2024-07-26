@@ -1,4 +1,4 @@
-# farrago
+# quilt
 
 
 ## todo
@@ -12,3 +12,8 @@
 - kbd-track for modulators
 - potentially rely on the [matrix mod](https://llllllll.co/t/mod-matrix-for-the-matrix-mod/57231)
 - UDO super-6 stereo phaser thing
+
+
+## trivia
+
+in its prototyp stage, this script used to be called `farrago`.
