@@ -225,7 +225,7 @@ Engine_Farrago : CroneEngine {
 			this.addCommand(key, "if", { arg msg;
 				var voiceId = msg[1];
 				params[key] = msg[2];
-				synth.setParam(voiceId, key, msg[1]);
+				synth.setParam(voiceId, key, msg[2]);
 			});
 			// all voices
 			this.addCommand(key ++ "_all", "f", { arg msg;
