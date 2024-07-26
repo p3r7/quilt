@@ -889,7 +889,15 @@ end
 -- -------------------------------------------------------------------------
 -- screen
 
-function draw_wave(waveshape, x, w, y, a, sign, dir, segment, nb_segments)
+-- NB: mod1_a, mod2_a, mod1hz, mod2hz are used to displaying the ring mod effect
+-- i'm pretty sure the math is plain wrong, but it does look right...
+function draw_wave(waveshape,
+                   x, w,
+                   y, a,
+                   sign, dir,
+                   segment, nb_segments,
+                   mod1_a, mod2_a,
+                   mod1hz, mod2hz)
   if dir == nil then
     dir = 1
   end
@@ -920,7 +928,19 @@ function draw_wave(waveshape, x, w, y, a, sign, dir, segment, nb_segments)
       -- print(linlin(x0, xn, startn, endn, i))
     end
     local nx = math.abs(linlin(x0, xn, startn, endn, i))
-    screen.line(i, y + nwave(waveshape, nx) * a * sign * -1)
+
+    local mod_a = 0
+    if mod1hz then
+      -- print(mod1hz)
+      local nxa = math.abs(linlin(x0, xn, 0, mod1hz, i))
+      mod_a = mod_a + nsin(nxa) * mod1_a
+    end
+    if mod2hz then
+      local nxb = math.abs(linlin(x0, xn, 0, mod2hz, i))
+      mod_a = mod_a + nsin(nxb) * mod2_a
+    end
+
+    screen.line(i, y + nwave(waveshape, nx) * a * sign * -1 + sign * mod_a * 10)
   end
 end
 
@@ -1115,6 +1135,8 @@ function draw_page_main()
   local abscissa = screen_h/2
   local a = abscissa * 3/6
 
+  local freq = voices[curr_voice_id].hz
+
   local sign = 1
   local x_offset = screen_w/2
 
@@ -1153,8 +1175,16 @@ function draw_page_main()
     for j=1,sync_ratio do
       local wi = math.floor(mod1(i * j, #WAVESHAPES))
       local waveshape = params:string("index"..wi)
-      local pole_a = a * (linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), params:get("npolar_rot_amount")) * linlin(0, 1, 1, amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1), params:get("npolar_rot_amount_sliced")))
-      draw_wave(waveshape, x_offset + (i-1) * half_wave_w, segment_w, abscissa, pole_a, sign, 1, j, sync_ratio)
+      local mod1_a = linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), params:get("npolar_rot_amount"))
+      local mod2_a =  linlin(0, 1, 1, amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1), params:get("npolar_rot_amount_sliced"))
+      local pole_a = a * mod1_a * mod2_a
+      draw_wave(waveshape,
+                x_offset + (i-1) * half_wave_w, segment_w,
+                abscissa, pole_a,
+                sign, 1,
+                j, sync_ratio,
+                params:get("npolar_rot_amount"), params:get("npolar_rot_amount_sliced"),
+                params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
     end
     sign = sign * -1
   end
@@ -1166,8 +1196,17 @@ function draw_page_main()
     for j=1,sync_ratio do
       local wi = math.floor(mod1(i * j, #WAVESHAPES))
       local waveshape = params:string("index"..wi)
-      local pole_a = a * (linlin(0, 1, 1, -amp_for_pole(i, mod, rot_angle, 1, -1), params:get("npolar_rot_amount")) * linlin(0, 1, 1, -amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1, -1), params:get("npolar_rot_amount_sliced")))
-      draw_wave(waveshape, x_offset - (i-1) * half_wave_w, segment_w, abscissa, pole_a, -sign, -1, j, sync_ratio)
+      local mod1_a = linlin(0, 1, 1, -amp_for_pole(i, mod, rot_angle, 1, -1), params:get("npolar_rot_amount"))
+      local mod2_a =  linlin(0, 1, 1, -amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1, -1), params:get("npolar_rot_amount_sliced"))
+      local pole_a = a * mod1_a * mod2_a
+
+      draw_wave(waveshape,
+                x_offset - (i-1) * half_wave_w, segment_w,
+                abscissa, pole_a,
+                -sign, -1,
+                j, sync_ratio,
+                params:get("npolar_rot_amount"), params:get("npolar_rot_amount_sliced"),
+                params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
     end
     sign = sign * -1
   end
