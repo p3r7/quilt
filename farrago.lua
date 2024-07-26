@@ -572,7 +572,7 @@ params:add_separator("filter", "filter")
 
   params:add{type = "control", id = "fenv_pct", name = "filter env %", controlspec = pct_control_off, formatter = fmt_percent,
              action = engine.fenv_a_all}
-  params:set("fenv_pct", 0.2)
+  params:set("fenv_pct", 0.1)
 
   params:add{type = "control", id = "fktrack", name = "filter kbd track", controlspec = pct_control_bipolar, action = engine.fktrack_all}
   params:set("fktrack", 0.2)
