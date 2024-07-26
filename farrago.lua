@@ -126,9 +126,9 @@ function unallocate_voice(note_num)
   local note_id = id_prefix * 1000 + note_num
 
   local voice_id = note_id_voice_map[note_id]
-  -- if voice_id == nil then
-  --   return
-  -- end
+  if voice_id == nil then
+    return
+  end
   note_id_voice_map[note_id] = nil
   voices[voice_id].active = false
   voices[voice_id].vel = 0
