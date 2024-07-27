@@ -413,7 +413,9 @@ function init()
   -- --------------------------------
   -- midi
 
-  params:add{type = "number", id = "midi_device", name = "MIDI Device", min = 1, max = 4, default = 2, action = function(v)
+  params:add{type = "number", id = "midi_device", name = "MIDI Device",
+             min = 1, max = 4, default = 2,
+             action = function(v)
                if m ~= nil then
                  m.event = nil
                end
@@ -429,7 +431,10 @@ function init()
   -- --------------------------------
   -- global
 
-  params:add{type = "number", id = "voice_count", name = "# voices", min = 1, max = 8, default = 8, action = engine.voice_count}
+  params:add{type = "number", id = "voice_count", name = "# voices",
+             min = 1, max = 8, default = 8,
+             action = engine.voice_count}
+
   params:add{type = "control", id = "binaurality", name = "binaurality",
              controlspec = pct_control_off, formatter = fmt_percent,
              action = function(v)
@@ -466,25 +471,30 @@ function init()
   -- FIXME: should call recompute_effective_freq() after change of value!
   -- use a clock instead?
 
-  params:add{type = "option", id = "index1", name = "index1", options = WAVESHAPES, action = function(v)
+  params:add{type = "option", id = "index1", name = "index1", options = WAVESHAPES,
+             action = function(v)
                engine.index1_all(v-1)
                screen_dirty = true
   end}
 
-  params:add{type = "option", id = "index2", name = "index2", options = WAVESHAPES, action = function(v)
+  params:add{type = "option", id = "index2", name = "index2", options = WAVESHAPES,
+             action = function(v)
                engine.index2_all(v-1)
                screen_dirty = true
   end}
-  params:add{type = "option", id = "index3", name = "index3", options = WAVESHAPES, action = function(v)
+  params:add{type = "option", id = "index3", name = "index3", options = WAVESHAPES,
+             action = function(v)
                engine.index3_all(v-1)
                screen_dirty = true
   end}
-  params:add{type = "option", id = "index4", name = "index4", options = WAVESHAPES, action = function(v)
+  params:add{type = "option", id = "index4", name = "index4", options = WAVESHAPES,
+             action = function(v)
                engine.index4_all(v-1)
                screen_dirty = true
   end}
 
-  params:add{type = "control", id = "freq", name = "freq", controlspec = CS_MIDLOWFREQ, formatter = Formatters.format_freq,
+  params:add{type = "control", id = "freq", name = "freq",
+             controlspec = CS_MIDLOWFREQ, formatter = Formatters.format_freq,
              action = function(v)
                BASE_FREQ = v
                local mod = params:get("mod")
@@ -507,22 +517,27 @@ function init()
   end}
   -- params:set("freq", BASE_FREQ)
 
-  params:add{type = "control", id = "freq_sag", name = "freq sag", controlspec = pct_control_off,
+  params:add{type = "control", id = "freq_sag", name = "freq sag",
+             controlspec = pct_control_off, formatter = fmt_percent,
              action = engine.freq_sag_all}
   params:set("freq_sag", 0.1)
 
 
-  params:add{type = "control", id = "vib_rate", name = "vibrato rate", controlspec = vib_rate_control,
+  params:add{type = "control", id = "vib_rate", name = "vibrato rate",
+             controlspec = vib_rate_control, formatter = Formatters.format_freq,
              action = engine.vib_rate_all}
 
-  params:add{type = "control", id = "vib_depth", name = "vibrato depth", controlspec = vib_depth_control,
+  params:add{type = "control", id = "vib_depth", name = "vibrato depth",
+             controlspec = vib_depth_control,
              action = engine.vib_depth_all}
 
 
   -- --------------------------------
   params:add_separator("mod osc", "mod osc")
 
-  params:add{type = "number", id = "mod", name = "mod", min = 2, max = 15, default = 3, action = function(v)
+  params:add{type = "number", id = "mod", name = "mod",
+             min = 2, max = 15, default = 3,
+             action = function(v)
                engine.mod_all(v)
                local mod = v
 
@@ -530,7 +545,7 @@ function init()
 
                local div = 1
                if PITCH_COMPENSATION_SYNC then
-               div = params:get("sync_ratio")/4
+                 div = params:get("sync_ratio")/4
                end
                local mult = 1
 
@@ -543,64 +558,78 @@ function init()
                screen_dirty = true
   end}
 
-params:add{type = "control", id = "npolar_rot_amount", name = "rot amount", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProj_all}
-params:add{type = "control", id = "npolar_rot_freq", name = "rot freq", controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
+  params:add{type = "control", id = "npolar_rot_amount", name = "rot amount",
+             controlspec = pct_control_on, formatter = fmt_percent,
+             action = engine.npolarProj_all}
+  params:add{type = "control", id = "npolar_rot_freq", name = "rot freq",
+             controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
              action = engine.npolarRotFreq_all}
-params:add{type = "control", id = "npolar_rot_freq_sag", name = "rot freq sag", controlspec = pct_control_off,
+  params:add{type = "control", id = "npolar_rot_freq_sag", name = "rot freq sag",
+             controlspec = pct_control_off, formatter = fmt_percent,
              action = engine.npolarRotFreq_sag_all}
-params:set("npolar_rot_freq_sag", 0.1)
+  params:set("npolar_rot_freq_sag", 0.1)
 
-params:add{type = "control", id = "npolar_rot_amount_sliced", name = "rot amount sliced", controlspec = pct_control_on, formatter = fmt_percent, action = engine.npolarProjSliced_all}
-params:add{type = "control", id = "npolar_rot_freq_sliced", name = "rot freq sliced", controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
+  params:add{type = "control", id = "npolar_rot_amount_sliced", name = "rot amount sliced",
+             controlspec = pct_control_on, formatter = fmt_percent,
+             action = engine.npolarProjSliced_all}
+  params:add{type = "control", id = "npolar_rot_freq_sliced", name = "rot freq sliced",
+             controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
              action = engine.npolarRotFreqSliced_all}
-params:add{type = "control", id = "npolar_rot_freq_sliced_sag", name = "rot freq sliced sag", controlspec = pct_control_off,
-           action = engine.npolarRotFreqSliced_sag_all}
-params:set("npolar_rot_freq_sliced_sag", 0.1)
+  params:add{type = "control", id = "npolar_rot_freq_sliced_sag", name = "rot freq sliced sag",
+             controlspec = pct_control_off, formatter = fmt_percent,
+             action = engine.npolarRotFreqSliced_sag_all}
+  params:set("npolar_rot_freq_sliced_sag", 0.1)
 
-params:add{type = "number", id = "sync_ratio", name = "sync_ratio", min = 1, max = 10, default = 1,
-           action = function(v)
-             engine.syncRatio_all(v)
+  params:add{type = "number", id = "sync_ratio", name = "sync_ratio",
+             min = 1, max = 10, default = 1,
+             action = function(v)
+               engine.syncRatio_all(v)
 
-             recompute_effective_freq()
+               recompute_effective_freq()
 
-             local div = 1
-             if PITCH_COMPENSATION_SYNC then
-               div = v/4
-             end
-             local mult = 1
-             if PITCH_COMPENSATION_MOD then
-               mult = params:get("mod") / 2
-             end
-             FREQ = mult * (BASE_FREQ/div)
-             engine.freq_curr(FREQ)
+               local div = 1
+               if PITCH_COMPENSATION_SYNC then
+                 div = v/4
+               end
+               local mult = 1
+               if PITCH_COMPENSATION_MOD then
+                 mult = params:get("mod") / 2
+               end
+               FREQ = mult * (BASE_FREQ/div)
+               engine.freq_curr(FREQ)
 
 
-             -- BASE_FREQ = BASE_FREQ / v
-             -- FREQ = params:get("mod") * BASE_FREQ/2
-             -- engine.freq_curr(FREQ)
+               -- BASE_FREQ = BASE_FREQ / v
+               -- FREQ = params:get("mod") * BASE_FREQ/2
+               -- engine.freq_curr(FREQ)
 
-             screen_dirty = true
-end}
+               screen_dirty = true
+  end}
 
-  params:add{type = "number", id = "sync_phase", name = "sync_phase", min = 0, max = 360, default = 0, formatter = fmt_phase,
+  params:add{type = "number", id = "sync_phase", name = "sync_phase",
+             min = 0, max = 360, default = 0,
+             formatter = fmt_phase,
              action = function(v)
                local a = util.linlin(0, 360, 0, 2 * math.pi, v)
                engine.syncPhase_all(a)
                screen_dirty = true
-end}
+  end}
 
 
   -- --------------------------------
-params:add_separator("filter", "filter")
+  params:add_separator("filter", "filter")
 
-  params:add{type = "control", id = "fenv_pct", name = "filter env %", controlspec = pct_control_off, formatter = fmt_percent,
+  params:add{type = "control", id = "fenv_pct", name = "filter env %",
+             controlspec = pct_control_off, formatter = fmt_percent,
              action = engine.fenv_a_all}
   params:set("fenv_pct", 0.1)
 
-  params:add{type = "control", id = "fktrack", name = "filter kbd track", controlspec = pct_control_bipolar, action = engine.fktrack_all}
+  params:add{type = "control", id = "fktrack", name = "filter kbd track",
+             controlspec = pct_control_bipolar, action = engine.fktrack_all}
   params:set("fktrack", 0.2)
 
-  params:add{type = "control", id = "cutoff", name = "cutoff", controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
+  params:add{type = "control", id = "cutoff", name = "cutoff",
+             controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
              action = function(v)
                engine.cutoff_all(v)
                f_graph:edit(nil, nil, v)
@@ -609,12 +638,14 @@ params:add_separator("filter", "filter")
                end
   end}
 
-  params:add{type = "control", id = "cutoff_sag", name = "cutoff sag", controlspec = pct_control_off,
+  params:add{type = "control", id = "cutoff_sag", name = "cutoff sag",
+             controlspec = pct_control_off, formatter = fmt_percent,
              action = engine.cutoff_sag_all}
   params:set("cutoff_sag", 0.1)
 
   local moog_res = controlspec.new(0, 4, "lin", 0, 0.0, "")
-  params:add{type = "control", id = "res", name = "res", controlspec = moog_res,
+  params:add{type = "control", id = "res", name = "res",
+             controlspec = moog_res,
              action = function(v)
                engine.resonance_all(v)
                f_graph:edit(nil, nil, nil, v/moog_res.maxval)
@@ -629,8 +660,11 @@ params:add_separator("filter", "filter")
   -- --------------------------------
   params:add_separator("amp env", "amp env")
 
-  params:add{type = "control", id = "amp_offset", name = "Amp Offset", controlspec = pct_control_off, formatter = format_percent, action = engine.amp_offset_all}
-  params:add{type = "control", id = "amp_attack", name = "Amp Attack", controlspec = ENV_ATTACK, formatter = Formatters.format_secs,
+  params:add{type = "control", id = "amp_offset", name = "Amp Offset",
+             controlspec = pct_control_off, formatter = format_percent,
+             action = engine.amp_offset_all}
+  params:add{type = "control", id = "amp_attack", name = "Amp Attack",
+             controlspec = ENV_ATTACK, formatter = Formatters.format_secs,
              action = function(v)
                engine.attack_all(v)
                local nv = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, v)
@@ -639,7 +673,8 @@ params:add_separator("filter", "filter")
                  screen_dirty = true
                end
   end}
-  params:add{type = "control", id = "amp_decay", name = "Amp Decay", controlspec = ENV_DECAY, formatter = Formatters.format_secs,
+  params:add{type = "control", id = "amp_decay", name = "Amp Decay",
+             controlspec = ENV_DECAY, formatter = Formatters.format_secs,
              action = function(v)
                engine.decay_all(v)
                local nv = util.explin(ENV_DECAY.minval, ENV_DECAY.maxval, 0, ENVGRAPH_T_MAX, v)
@@ -648,7 +683,8 @@ params:add_separator("filter", "filter")
                  screen_dirty = true
                end
   end}
-  params:add{type = "control", id = "amp_sustain", name = "Amp Sustain", controlspec = ENV_SUSTAIN,
+  params:add{type = "control", id = "amp_sustain", name = "Amp Sustain",
+             controlspec = ENV_SUSTAIN,
              action = function(v)
                engine.sustain_all(v)
                local nv = util.linlin(ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, 0, 1, v)
@@ -657,7 +693,8 @@ params:add_separator("filter", "filter")
                  screen_dirty = true
                end
   end}
-  params:add{type = "control", id = "amp_release", name = "Amp Release", controlspec = ENV_RELEASE, formatter = Formatters.format_secs,
+  params:add{type = "control", id = "amp_release", name = "Amp Release",
+             controlspec = ENV_RELEASE, formatter = Formatters.format_secs,
              action = function(v)
                engine.release_all(v)
                local nv = util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, v)
@@ -672,16 +709,18 @@ params:add_separator("filter", "filter")
   params:add_separator("filter env", "filter env")
 
   -- filter env
-  params:add{type = "control", id = "filter_attack", name = "Filter Attack", controlspec = ENV_ATTACK, formatter = Formatters.format_secs,
-action = function(v)
-  engine.fdecay_all(v)
-  local nv = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, v)
-  fenv_graph:edit_adsr(nv, nil, nil, nil)
-  if page_list[pages.index] == 'filter' then
+  params:add{type = "control", id = "filter_attack", name = "Filter Attack",
+             controlspec = ENV_ATTACK, formatter = Formatters.format_secs,
+             action = function(v)
+               engine.fdecay_all(v)
+               local nv = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, v)
+               fenv_graph:edit_adsr(nv, nil, nil, nil)
+               if page_list[pages.index] == 'filter' then
                  screen_dirty = true
                end
   end}
-  params:add{type = "control", id = "filter_decay", name = "Filter Decay", controlspec = ENV_DECAY, formatter = Formatters.format_secs,
+  params:add{type = "control", id = "filter_decay", name = "Filter Decay",
+             controlspec = ENV_DECAY, formatter = Formatters.format_secs,
              action = function(v)
                engine.fdecay_all(v)
                local nv = util.explin(ENV_DECAY.minval, ENV_DECAY.maxval, 0, ENVGRAPH_T_MAX, v)
@@ -690,7 +729,8 @@ action = function(v)
                  screen_dirty = true
                end
   end}
-  params:add{type = "control", id = "filter_sustain", name = "Filter Sustain", controlspec = ENV_SUSTAIN,
+  params:add{type = "control", id = "filter_sustain", name = "Filter Sustain",
+             controlspec = ENV_SUSTAIN,
              action = function(v)
                engine.fsustain_all(v)
                local nv = util.linlin(ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, 0, 1, v)
@@ -699,12 +739,13 @@ action = function(v)
                  screen_dirty = true
                end
   end}
-  params:add{type = "control", id = "filter_release", name = "Filter Release", controlspec = ENV_RELEASE, formatter = Formatters.format_secs,
-action = function(v)
-  engine.frelease_all(v)
-  local nv = util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, v)
-  fenv_graph:edit_adsr(nil, nil, nil, nv)
-  if page_list[pages.index] == 'filter' then
+  params:add{type = "control", id = "filter_release", name = "Filter Release",
+             controlspec = ENV_RELEASE, formatter = Formatters.format_secs,
+             action = function(v)
+               engine.frelease_all(v)
+               local nv = util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, v)
+               fenv_graph:edit_adsr(nil, nil, nil, nv)
+               if page_list[pages.index] == 'filter' then
                  screen_dirty = true
                end
   end}
@@ -716,84 +757,95 @@ action = function(v)
   params:add_separator("vintage", "vintage")
 
   local pct_sat_threshold = controlspec.new(0.1, 1, "lin", 0, 0.5, "")
-params:add{type = "control", id = "sat_threshold", name = "sat/comp threshold", controlspec = pct_sat_threshold, action = engine.sat_threshold_all}
+  params:add{type = "control", id = "sat_threshold", name = "sat/comp threshold",
+             controlspec = pct_sat_threshold,
+             action = engine.sat_threshold_all}
 
-params:add{type = "control", id = "pitch_offness", name = "pitch offness", controlspec = pct_control_off,
-           action = engine.pitch_offness_pct_all}
+  params:add{type = "control", id = "pitch_offness", name = "pitch offness",
+             controlspec = pct_control_off, formatter = fmt_percent,
+             action = engine.pitch_offness_pct_all}
 
-params:add{type = "control", id = "cutoff_offness", name = "cutoff offness", controlspec = pct_control_off,
-           action = engine.cutoff_offness_pct_all}
-
-for i=1,NB_VOICES do
-  params:add{type = "control", id = "pitch_offness_max_"..i, name = "max pitch offness #"..i, controlspec = pct_control_bipolar,
-             action = function(v)
-               engine.pitch_offness_max(i, v)
-  end}
-end
-for i=1,NB_VOICES do
-  params:add{type = "control", id = "cutoff_offness_max_"..i, name = "max cutoff offness #"..i, controlspec = pct_control_bipolar,
-             action = function(v)
-               engine.cutoff_offness_max(i, v)
-  end}
-end
+  params:add{type = "control", id = "cutoff_offness", name = "cutoff offness",
+             controlspec = pct_control_off, formatter = fmt_percent,
+             action = engine.cutoff_offness_pct_all}
 
 
--- --------------------------------
+  -- --------------------------------
+  params:add_separator("internal_trimmers", "internal trimmers")
 
-for i=1,NB_VOICES do
-  local sign = (math.random(2) == 2) and 1 or -1
-  params:set("pitch_offness_max_"..i, sign * (math.random(100+1)-1)/100)
-  sign = (math.random(2) == 2) and 1 or -1
-  params:set("cutoff_offness_max_"..i, sign * (math.random(100+1)-1)/100)
-end
+  for i=1,NB_VOICES do
+    params:add_group("internal_trimmers_v"..i, "voice #"..i, 2)
+    params:add{type = "control", id = "pitch_offness_max_"..i, name = "max pitch offness #"..i,
+               controlspec = pct_control_bipolar, formatter = fmt_percent,
+               action = function(v)
+                 engine.pitch_offness_max(i, v)
+    end}
 
--- params:set("index1", 2)
--- params:set("index2", 2)
--- params:set("index3", 2)
--- params:set("index4", 2)
+    params:add{type = "control", id = "cutoff_offness_max_"..i, name = "max cutoff offness #"..i,
+               controlspec = pct_control_bipolar, formatter = fmt_percent,
+               action = function(v)
+                 engine.cutoff_offness_max(i, v)
+    end}
+  end
 
--- params:set("index1", 3)
--- params:set("index2", 3)
--- params:set("index3", 3)
--- params:set("index4", 3)
 
-params:bang()
+  -- --------------------------------
+  -- init vintage
 
--- params:set("index1", 1)
--- params:set("index2", 1)
--- params:set("index3", 1)
--- params:set("index4", 1)
+  for i=1,NB_VOICES do
+    local sign = (math.random(2) == 2) and 1 or -1
+    params:set("pitch_offness_max_"..i, sign * (math.random(100+1)-1)/100)
+    sign = (math.random(2) == 2) and 1 or -1
+    params:set("cutoff_offness_max_"..i, sign * (math.random(100+1)-1)/100)
+  end
 
--- params:set("index1", 4)
--- params:set("index2", 4)
--- params:set("index3", 4)
--- params:set("index4", 4)
+  -- params:set("index1", 2)
+  -- params:set("index2", 2)
+  -- params:set("index3", 2)
+  -- params:set("index4", 2)
 
-bleached.init(bleached_cc_cb)
-bleached.switch_cc_mode(bleached.M_CC14)
+  -- params:set("index1", 3)
+  -- params:set("index2", 3)
+  -- params:set("index3", 3)
+  -- params:set("index4", 3)
 
-clock_redraw = clock.run(function()
-    while true do
-      clock.sleep(1/FPS)
-      if screen_dirty then
-        redraw()
+  params:bang()
+
+  -- params:set("index1", 1)
+  -- params:set("index2", 1)
+  -- params:set("index3", 1)
+  -- params:set("index4", 1)
+
+  -- params:set("index1", 4)
+  -- params:set("index2", 4)
+  -- params:set("index3", 4)
+  -- params:set("index4", 4)
+
+  bleached.init(bleached_cc_cb)
+  bleached.switch_cc_mode(bleached.M_CC14)
+
+  clock_redraw = clock.run(function()
+      while true do
+        clock.sleep(1/FPS)
+        if screen_dirty then
+          redraw()
+        end
       end
-    end
-end)
+  end)
 
-clock_rot = clock.run(function()
-    while true do
-      clock.sleep(1/ROT_FPS)
+  clock_rot = clock.run(function()
+      while true do
+        clock.sleep(1/ROT_FPS)
         rot_tick()
-    end
-end)
+      end
+  end)
 
--- clock_env = clock.run(function()
---     while true do
---       clock.sleep(1/ROT_FPS)
---       env_tick()
---     end
--- end)
+  -- clock_env = clock.run(function()
+  --     while true do
+  --       clock.sleep(1/ROT_FPS)
+  --       env_tick()
+  --     end
+  -- end)
 
 end
 
@@ -962,8 +1014,11 @@ function draw_wave(waveshape,
       local nxb = math.abs(linlin(x0, xn, 0, mod2hz, i))
       mod_a = mod_a + nsin(nxb) * mod2_a
     end
+    local rm_visual_speed = math.max(mod1hz*mod1_a, mod2hz*mod2_a)
+    local rm_visual_a = util.explin(0.000001, 2500, 4, 10, rm_visual_speed)
+    rm_visual_a = 4
 
-    screen.line(i, y + nwave(waveshape, nx) * a * sign * -1 + sign * mod_a * 10)
+    screen.line(i, y + nwave(waveshape, nx) * a * sign * -1 + sign * mod_a * rm_visual_a)
   end
 end
 
@@ -1168,6 +1223,7 @@ function draw_page_main()
 
   -- poles - main osc
   for i=1,params:get("voice_count") do
+    params:get("binaurality")
     draw_poles((p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5), p_radius+p_pargin, p_radius, voices[i].hz, voices[i].rot_angle, voices[i].active)
   end
 
