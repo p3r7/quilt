@@ -210,11 +210,18 @@ end
 
 local function bleached_cc_main(row, pot, v, precision)
   if row == 1 and pot == 1 then
-    params:set("freq", util.linexp(0, precision, CS_MIDLOWFREQ.minval, CS_MIDLOWFREQ.maxval, v))
+    -- params:set("freq", util.linexp(0, precision, CS_MIDLOWFREQ.minval, CS_MIDLOWFREQ.maxval, v))
+
+    -- binaural knob
+    params:set("binaurality", util.linlin(0, precision, 0, 1, v))
+
   elseif row == 1 and pot == 2 then
-    -- params:set("voice_count", util.round(util.linlin(0, precision, 1, 8, v)))
-    params:set("freq_sag", util.linlin(0, precision, 0, 1, v))
-    params:set("cutoff_sag", util.linlin(0, precision, 0, 1, v))
+    -- vintage kob
+    -- params:set("freq_sag", util.linlin(0, precision, 0, 1, v))
+    -- params:set("cutoff_sag", util.linlin(0, precision, 0, 1, v))
+    params:set("pitch_offness", util.linlin(0, precision, 0, 1, v))
+    -- params:set("cutoff_offness", util.linlin(0, precision, 0, 1, v))
+    params:set("sat_threshold", util.linlin(0, precision, 1, 0.1, v))
   elseif row == 1 and pot == 3 then
     params:set("cutoff", util.linexp(0, precision, ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval, v))
   elseif row == 2 and pot == 1 then
@@ -423,6 +430,22 @@ function init()
   -- global
 
   params:add{type = "number", id = "voice_count", name = "# voices", min = 1, max = 8, default = 8, action = engine.voice_count}
+  params:add{type = "control", id = "binaurality", name = "binaurality",
+             controlspec = pct_control_off, formatter = fmt_percent,
+             action = function(v)
+               local binaural_index = (NB_VOICES-1) * v;
+               local pan_pct = v;
+               for i=1, NB_VOICES do
+                 local v_pan_dir = (mod1(i, 2) == 1) and -1 or 1
+                 local v_pan_pct = 1
+                 if i >= math.floor(binaural_index) then
+                   v_pan_pct = 1 - util.linlin(binaural_index, NB_VOICES, 0, 1, i)
+                 end
+                 -- print("pan "..i.." -> "..(pan_pct * v_pan_dir * v_pan_pct))
+                 voices[i].pan = pan_pct * v_pan_dir * v_pan_pct
+                 engine.pan(i, pan_pct * v_pan_dir * v_pan_pct / 2)
+               end
+  end}
 
 
   -- --------------------------------
