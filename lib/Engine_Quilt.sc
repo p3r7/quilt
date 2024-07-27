@@ -266,7 +266,7 @@ Engine_Quilt : CroneEngine {
 // this class allows turning any mono synthdef into a polyphonic variant w/ note stealing
 
 PolyDef {
-	var voices, maxVoices, nextVoiceId, currVoice, noteIdMap;
+	var voices, maxVoices, currVoice;
 
 	*new { |synthName, context, count|
         ^super.new.init(synthName, context, count)
@@ -275,42 +275,22 @@ PolyDef {
 	init { |synthName, context, count|
 		voices = Array.fill(count, { Synth.new(synthName, [\out, context.out_b], target: context.xg) });
 		maxVoices = voices.size;
-		nextVoiceId = 0;
 		currVoice = voices[0];
-
-		noteIdMap = Dictionary.new;
 	}
 
-	noteOn { |noteId, freq, vel|
-		var currVoiceId = nextVoiceId;
-		var voice = voices[nextVoiceId];
-		nextVoiceId = (nextVoiceId + 1) % maxVoices;
+	noteOn { |voiceId, freq, vel|
+		var voice = voices[voiceId];
 		currVoice = voice;
-
 		voice.set(\freq, freq, \vel, vel, \gate, 1);
-
-		noteIdMap[noteId] = currVoiceId;
 	}
 
-	noteOff { |noteId|
-		var voiceId = noteIdMap[noteId];
-		if (voiceId.notNil) {
-            var voice = voices[voiceId];
-            voice.set(\gate, 0);
-            noteIdMap.removeAt(noteId);
-		};
-		// voices.do { |voice|
-		// 	if (voice.get(\freq) == freq) {
-		// 		voice.set(\gate, 0);
-		// 	}
-		// };
+	noteOff { |voiceId, noteId|
+		var voice = voices[voiceId];
+		voice.set(\gate, 0);
 	}
 
 	setPolyphony { |nbVoices|
 		maxVoices = nbVoices;
-		if (nextVoiceId > (nbVoices-1)) {
-			nextVoiceId = 0
-		}
 	}
 
 	setParam { |voiceId, key, value|

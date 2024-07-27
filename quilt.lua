@@ -302,12 +302,12 @@ function note_on(note_num, vel)
   voices[voice_id].active = true
   voices[voice_id].hz = hz
   voices[voice_id].vel = vel
-  engine.noteOn(note_id, hz, vel)
+  engine.noteOn(voice_id, hz, vel)
 end
 
 function note_off(note_num)
   local note_id, voice_id = unallocate_voice(note_num)
-  engine.noteOff(note_id)
+  engine.noteOff(voice_id)
 end
 
 function aftertouch(v)
