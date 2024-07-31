@@ -1,6 +1,27 @@
--- quilt.
--- @eigen
-
+--
+--     =========quilt.==========
+--     ------------------------
+--     ///////\/\\\\\\\
+--     >><<<>><<<><><>>><<>>><<
+--     \/\/\\/\/\//\/\/
+--     ------------------------
+-- ▼▼ ==================== @eigen
+--
+--     ------instructions------
+--
+-- global:
+-- - E1: change page
+--
+-- main page (1):
+-- - b1: binaurality
+-- - b2: vintage
+-- - b3: cutoff
+-- - E2: npolar mod index
+-- - b4: npolar mod depth
+-- - b5: npolar mod freq
+-- - E3: sliced mod index
+-- - b6: sliced mod depth
+-- - b7: sliced mod freq
 
 -- -------------------------------------------------------------------------
 -- deps
@@ -87,6 +108,7 @@ has_bleached = false
 -- we use prepend it w/ a prefix to allow more than one voice to play the same note
 
 voices = {}
+paired_voices = {} -- NB: voices get paired as we augment "binaurality"
 curr_voice_id = 1
 next_voice_id = 1
 note_id_voice_map = {}
@@ -97,12 +119,19 @@ for i=1,NB_VOICES do
     hz = 20,
     vel = 0,
     rot_angle = 0,
+    pan = 0,
+    paired_leader = nil,
   }
+end
+
+function is_paired_voice(voice_id)
+  return paired_voices[voice_id] ~= nil
 end
 
 function nb_active_voice_same_note(note_id)
   local count = 0
   for vnote_id, voice_id in pairs(note_id_voice_map) do
+    print(vnote_id .. " VS " .. note_id)
     if (vnote_id % 1000) == (note_id % 1000) then
       count = count + 1
     end
@@ -111,28 +140,58 @@ function nb_active_voice_same_note(note_id)
 end
 
 function allocate_voice(note_num)
+  local allocated_voice_ids = {}
+
+  print("------")
+  print("pre-alloc: ")
+  print(curr_voice_id)
+
   curr_voice_id = next_voice_id;
+  table.insert(allocated_voice_ids, curr_voice_id)
 
   local id_prefix = nb_active_voice_same_note(note_num) + 1
   local note_id = id_prefix * 1000 + note_num
-
+  -- NB: we only register one of the paired voice to simplify meta voice count in `nb_active_voice_same_note`
   note_id_voice_map[note_id] = curr_voice_id
+
+  if paired_voices[curr_voice_id] then
+    print("-> pair!")
+    table.insert(allocated_voice_ids, paired_voices[curr_voice_id])
+    print("   "..paired_voices[curr_voice_id])
+
+    next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
+  end
+
   next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
-  return note_id, curr_voice_id
+
+  -- while is_paired_voice(next_voice_id) do
+  -- next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
+  -- end
+
+  return note_id, allocated_voice_ids
 end
 
 function unallocate_voice(note_num)
+  local unallocated_voice_ids = {}
+
   local id_prefix = nb_active_voice_same_note(note_num)
+  print("id_prefix="..id_prefix)
   local note_id = id_prefix * 1000 + note_num
+  print("note_id="..note_id)
 
   local voice_id = note_id_voice_map[note_id]
   if voice_id == nil then
-    return
+    return note_id, unallocated_voice_ids
   end
+  table.insert(unallocated_voice_ids, voice_id)
+
+  if paired_voices[voice_id] then
+    table.insert(unallocated_voice_ids, paired_voices[voice_id])
+  end
+
   note_id_voice_map[note_id] = nil
-  voices[voice_id].active = false
-  voices[voice_id].vel = 0
-  return note_id, voice_id
+
+  return note_id, unallocated_voice_ids
 end
 
 local env_graph
@@ -213,7 +272,12 @@ local function bleached_cc_main(row, pot, v, precision)
     -- params:set("freq", util.linexp(0, precision, CS_MIDLOWFREQ.minval, CS_MIDLOWFREQ.maxval, v))
 
     -- binaural knob
-    params:set("binaurality", util.linlin(0, precision, 0, 1, v))
+    v = util.linlin(0, precision, 0, 1, v)
+    -- NB: issue w/ bleached that doesn't go up to the full range
+    if v > 0.99 then
+      v = 1
+    end
+    params:set("binaurality", v)
 
   elseif row == 1 and pot == 2 then
     -- vintage kob
@@ -298,24 +362,79 @@ end
 
 -- -------------------------------------------------------------------------
 --
--- notes
+-- voices
 
-function note_on(note_num, vel)
-  local note_id, voice_id = allocate_voice(note_num)
-  if voice_id == nil then
-    return
-  end
-  local hz = MusicUtil.note_num_to_freq(note_num)
+function voice_on(voice_id, hz, vel, leader_id)
   voices[voice_id].active = true
   voices[voice_id].hz = hz
   voices[voice_id].vel = vel
+  voices[voice_id].paired_leader = leader_id
   engine.noteOn(voice_id, hz, vel)
 end
 
-function note_off(note_num)
-  local note_id, voice_id = unallocate_voice(note_num)
+function voice_off(voice_id)
+  voices[voice_id].active = false
+  voices[voice_id].vel = 0
+  voices[voice_id].paired_leader = nil
   engine.noteOff(voice_id)
 end
+
+-- -------------------------------------------------------------------------
+--
+-- meta-voices
+
+function enforce_associated_voices(leader_id, follower_id)
+  if voices[leader_id].active and not voices[follower_id].active then
+    local hz = voices[leader_id].hz
+    local vel = voices[leader_id].vel
+    voice_on(follower_id, hz, vel, leader_id)
+  end
+end
+
+-- -------------------------------------------------------------------------
+--
+-- notes
+
+function note_on(note_num, vel)
+  local note_id, voice_ids = allocate_voice(note_num)
+  local hz = MusicUtil.note_num_to_freq(note_num)
+
+  print("------")
+  print("alloc: ")
+  tab.print(voice_ids)
+
+  local main_voice_id = voice_ids[1]
+
+  for i, voice_id in pairs(voice_ids) do
+    local leader_id = nil
+    if i > 1 then
+      leader_id = main_voice_id
+    end
+    voice_on(voice_id, hz, vel, leader_id)
+  end
+end
+
+function note_off(note_num)
+  local note_id, voice_ids = unallocate_voice(note_num)
+
+  print("------")
+  print("unalloc: ")
+  tab.print(voice_ids)
+
+  for _, voice_id in pairs(voice_ids) do
+    voice_off(voice_id)
+  end
+end
+
+
+function enforce_associated_voices_flex(a_id, b_id)
+  if voices[a_id].active and not voices[b_id].active then
+    enforce_associated_voices(a_id, b_id)
+  elseif voices[b_id].active and not voices[a_id].active then
+    enforce_associated_voices(b_id, a_id)
+  end
+end
+
 
 function aftertouch(v)
   -- review: don't use params for this but global state vars
@@ -438,11 +557,25 @@ function init()
   params:add{type = "control", id = "binaurality", name = "binaurality",
              controlspec = pct_control_off, formatter = fmt_percent,
              action = function(v)
-               local binaural_index = (NB_VOICES-1) * v;
+               local binaural_index = NB_VOICES * v;
                local pan_pct = v;
+
+               tempty(paired_voices)
+
                for i=1, NB_VOICES do
                  local v_pan_dir = (mod1(i, 2) == 1) and -1 or 1
                  local v_pan_pct = 1
+
+                 if i <= math.floor(binaural_index) and i%2 == 0 then
+                   paired_voices[i-1] = i
+                   paired_voices[i] = i-1
+                   enforce_associated_voices_flex(i-1, i)
+                 else
+                   if voices[i].paired_leader then
+                     voice_off(i)
+                   end
+                 end
+
                  if i >= math.floor(binaural_index) then
                    v_pan_pct = 1 - util.linlin(binaural_index, NB_VOICES, 0, 1, i)
                  end
@@ -1223,7 +1356,7 @@ function draw_page_main()
 
   -- poles - main osc
   for i=1,params:get("voice_count") do
-    params:get("binaurality")
+    -- params:get("binaurality")
     draw_poles((p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5), p_radius+p_pargin, p_radius, voices[i].hz, voices[i].rot_angle, voices[i].active)
   end
 
