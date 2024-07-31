@@ -113,6 +113,11 @@ curr_voice_id = 1
 next_voice_id = 1
 note_id_voice_map = {}
 
+nb_meta_voices = NB_VOICES
+nb_dual_meta_voices = 0
+nb_active_voices = 0
+nb_active_meta_voices = 0
+
 for i=1,NB_VOICES do
   voices[i] = {
     active = false,
@@ -124,19 +129,31 @@ for i=1,NB_VOICES do
   }
 end
 
-function is_paired_voice(voice_id)
-  return paired_voices[voice_id] ~= nil
-end
-
 function nb_active_voice_same_note(note_id)
   local count = 0
-  for vnote_id, voice_id in pairs(note_id_voice_map) do
-    print(vnote_id .. " VS " .. note_id)
+  for vnote_id, voice_ids in pairs(note_id_voice_map) do
+    -- print(vnote_id .. " VS " .. note_id)
     if (vnote_id % 1000) == (note_id % 1000) then
       count = count + 1
     end
   end
   return count
+end
+
+-- REVIEW: maybe only pair w/ voices in the same
+function get_free_paired_voice_id(voice_id)
+  local max_tries = NB_VOICES
+  local paired_voice_id = mod1(voice_id+1, params:get("voice_count"))
+  local try = 1
+  while voices[paired_voice_id].active do
+    if try > params:get("voice_count") then
+      paired_voice_id = nil
+      -- break
+    end
+    paired_voice_id = mod1(paired_voice_id+1, params:get("voice_count"))
+    try = try + 1
+  end
+  return paired_voice_id
 end
 
 function allocate_voice(note_num)
@@ -152,19 +169,31 @@ function allocate_voice(note_num)
   local id_prefix = nb_active_voice_same_note(note_num) + 1
   local note_id = id_prefix * 1000 + note_num
   -- NB: we only register one of the paired voice to simplify meta voice count in `nb_active_voice_same_note`
-  note_id_voice_map[note_id] = curr_voice_id
 
-  if paired_voices[curr_voice_id] then
-    print("-> pair!")
-    table.insert(allocated_voice_ids, paired_voices[curr_voice_id])
-    print("   "..paired_voices[curr_voice_id])
-
+  if nb_active_meta_voices < nb_dual_meta_voices and nb_active_voices < params:get("voice_count") then
+    print("yes")
+    local follower_id = get_free_paired_voice_id(curr_voice_id)
+    if follower_id then
+      -- print("-> pair! " .. follower_id)
+      table.insert(allocated_voice_ids, follower_id)
+      next_voice_id = mod1(follower_id+1, params:get("voice_count"))
+    end
+  else
     next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
   end
 
-  next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
+  note_id_voice_map[note_id] = allocated_voice_ids
 
-  -- while is_paired_voice(next_voice_id) do
+  -- if paired_voices[curr_voice_id] then
+  --   print("-> pair!")
+  --   table.insert(allocated_voice_ids, paired_voices[curr_voice_id])
+  --   print("   "..paired_voices[curr_voice_id])
+
+  --   next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
+  -- end
+
+
+  -- while paired_voices[curr_voice_id] ~= nil do
   -- next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
   -- end
 
@@ -172,26 +201,31 @@ function allocate_voice(note_num)
 end
 
 function unallocate_voice(note_num)
-  local unallocated_voice_ids = {}
-
   local id_prefix = nb_active_voice_same_note(note_num)
   print("id_prefix="..id_prefix)
   local note_id = id_prefix * 1000 + note_num
   print("note_id="..note_id)
 
-  local voice_id = note_id_voice_map[note_id]
-  if voice_id == nil then
-    return note_id, unallocated_voice_ids
+  local voice_ids = note_id_voice_map[note_id]
+  if voice_ids == nil then
+    print("crap")
+    return note_id, {}
   end
-  table.insert(unallocated_voice_ids, voice_id)
 
-  if paired_voices[voice_id] then
-    table.insert(unallocated_voice_ids, paired_voices[voice_id])
-  end
+  -- -- REVIEW: this is bad
+  -- if voices[voice_id].paired_leader then
+  --   table.insert(unallocated_voice_ids, voices[voice_id].paired_leader)
+  -- else
+  --   for i=1,NB_VOICES do
+  --     if voices[i].paired_leader == voice_id then
+  --       table.insert(unallocated_voice_ids, voices[i].paired_leader)
+  --     end
+  --   end
+  -- end
 
   note_id_voice_map[note_id] = nil
 
-  return note_id, unallocated_voice_ids
+  return note_id, voice_ids
 end
 
 local env_graph
@@ -364,12 +398,15 @@ end
 --
 -- voices
 
+-- REVIEW: store note_id so that we can remove voice from note_id_voice_map when dimnishing binaurality!
+
 function voice_on(voice_id, hz, vel, leader_id)
   voices[voice_id].active = true
   voices[voice_id].hz = hz
   voices[voice_id].vel = vel
   voices[voice_id].paired_leader = leader_id
   engine.noteOn(voice_id, hz, vel)
+  nb_active_voices = nb_active_voices + 1
 end
 
 function voice_off(voice_id)
@@ -377,6 +414,7 @@ function voice_off(voice_id)
   voices[voice_id].vel = 0
   voices[voice_id].paired_leader = nil
   engine.noteOff(voice_id)
+  nb_active_voices = nb_active_voices - 1
 end
 
 -- -------------------------------------------------------------------------
@@ -412,6 +450,8 @@ function note_on(note_num, vel)
     end
     voice_on(voice_id, hz, vel, leader_id)
   end
+
+  nb_active_meta_voices = nb_active_meta_voices+1
 end
 
 function note_off(note_num)
@@ -424,6 +464,8 @@ function note_off(note_num)
   for _, voice_id in pairs(voice_ids) do
     voice_off(voice_id)
   end
+
+  nb_active_meta_voices = nb_active_meta_voices-1
 end
 
 
@@ -560,15 +602,19 @@ function init()
                local binaural_index = NB_VOICES * v;
                local pan_pct = v;
 
-               tempty(paired_voices)
+               nb_dual_meta_voices = math.floor(binaural_index / 2)
+               nb_meta_voices = NB_VOICES - nb_dual_meta_voices
+
+               -- tempty(paired_voices)
 
                for i=1, NB_VOICES do
                  local v_pan_dir = (mod1(i, 2) == 1) and -1 or 1
                  local v_pan_pct = 1
 
+                 -- TODO: replace w/ nb_active_meta_voices / dual_meta_voices test
                  if i <= math.floor(binaural_index) and i%2 == 0 then
-                   paired_voices[i-1] = i
-                   paired_voices[i] = i-1
+                   -- paired_voices[i-1] = i
+                   -- paired_voices[i] = i-1
                    enforce_associated_voices_flex(i-1, i)
                  else
                    if voices[i].paired_leader then
