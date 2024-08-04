@@ -214,7 +214,7 @@ local function bleached_cc_main(row, pot, v, precision)
     -- vintage kob
     -- params:set("freq_sag", util.linlin(0, precision, 0, 1, v))
     -- params:set("cutoff_sag", util.linlin(0, precision, 0, 1, v))
-    params:set("pitch_offness", util.linlin(0, precision, 0, 1, v))
+    params:set("pitch_offness", util.linexp(0, precision, 0+1, 1+1, v) - 1)
     -- params:set("cutoff_offness", util.linlin(0, precision, 0, 1, v))
     params:set("sat_threshold", util.linlin(0, precision, 1, 0.1, v))
   elseif row == 1 and pot == 3 then
