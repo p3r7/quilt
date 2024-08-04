@@ -23,12 +23,12 @@
 -- - b6: sliced mod depth
 -- - b7: sliced mod freq
 
+
 -- -------------------------------------------------------------------------
 -- deps
 
 local ControlSpec = require "controlspec"
 local Formatters = require "formatters"
-local MusicUtil = require "musicutil"
 
 local UI = require "ui"
 local EnvGraph = require "envgraph"
@@ -36,23 +36,16 @@ local FilterGraph = require "filtergraph"
 
 local bleached = include("lib/bleached")
 
+local voiceutils = include("lib/voiceutils")
+
 include("lib/core")
+include("lib/consts")
 
 engine.name = "Quilt"
 
 
 -- -------------------------------------------------------------------------
 -- consts
-
-ROT_FPS = 30 -- NB: there is no point in making it faster than FPS
-
-NB_VOICES = 8
-NB_WAVES = 4
-
-FPS = 15
-if norns.version == "update	231108" then
-  FPS = 30
-end
 
 local WAVESHAPES = {"SIN", "SAW", "TRI", "SQR"}
 
@@ -100,7 +93,6 @@ rot_angle_sliced = 0
 
 has_bleached = false
 
-
 -- -------------------------------------------------------------------------
 -- state - voices
 
@@ -109,14 +101,18 @@ has_bleached = false
 
 voices = {}
 paired_voices = {} -- NB: voices get paired as we augment "binaurality"
-curr_voice_id = 1
-next_voice_id = 1
 note_id_voice_map = {}
 
-nb_meta_voices = NB_VOICES
-nb_dual_meta_voices = 0
-nb_active_voices = 0
-nb_active_meta_voices = 0
+STATE = {
+  voices = voices,
+  curr_voice_id = 1,
+  next_voice_id = 1,
+  note_id_voice_map = note_id_voice_map,
+  nb_active_voices = 0,
+  nb_active_meta_voices = 0,
+  nb_meta_voices = NB_VOICES,
+  nb_dual_meta_voices = 0,
+}
 
 for i=1,NB_VOICES do
   voices[i] = {
@@ -129,115 +125,16 @@ for i=1,NB_VOICES do
   }
 end
 
-function nb_active_voice_same_note(note_id)
-  local count = 0
-  for vnote_id, voice_ids in pairs(note_id_voice_map) do
-    -- print(vnote_id .. " VS " .. note_id)
-    if (vnote_id % 1000) == (note_id % 1000) then
-      count = count + 1
-    end
-  end
-  return count
-end
-
--- REVIEW: maybe only pair w/ voices in the same
-function get_free_paired_voice_id(voice_id)
-  local max_tries = NB_VOICES
-  local paired_voice_id = mod1(voice_id+1, params:get("voice_count"))
-  local try = 1
-  while voices[paired_voice_id].active do
-    if try > params:get("voice_count") then
-      paired_voice_id = nil
-      -- break
-    end
-    paired_voice_id = mod1(paired_voice_id+1, params:get("voice_count"))
-    try = try + 1
-  end
-  return paired_voice_id
-end
-
-function allocate_voice(note_num)
-  local allocated_voice_ids = {}
-
-  print("------")
-  print("pre-alloc: ")
-  print(curr_voice_id)
-
-  curr_voice_id = next_voice_id;
-  table.insert(allocated_voice_ids, curr_voice_id)
-
-  local id_prefix = nb_active_voice_same_note(note_num) + 1
-  local note_id = id_prefix * 1000 + note_num
-  -- NB: we only register one of the paired voice to simplify meta voice count in `nb_active_voice_same_note`
-
-  if nb_active_meta_voices < nb_dual_meta_voices and nb_active_voices < params:get("voice_count") then
-    print("yes")
-    local follower_id = get_free_paired_voice_id(curr_voice_id)
-    if follower_id then
-      -- print("-> pair! " .. follower_id)
-      table.insert(allocated_voice_ids, follower_id)
-      next_voice_id = mod1(follower_id+1, params:get("voice_count"))
-    end
-  else
-    next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
-  end
-
-  note_id_voice_map[note_id] = allocated_voice_ids
-
-  -- if paired_voices[curr_voice_id] then
-  --   print("-> pair!")
-  --   table.insert(allocated_voice_ids, paired_voices[curr_voice_id])
-  --   print("   "..paired_voices[curr_voice_id])
-
-  --   next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
-  -- end
-
-
-  -- while paired_voices[curr_voice_id] ~= nil do
-  -- next_voice_id = mod1(next_voice_id+1, params:get("voice_count"))
-  -- end
-
-  return note_id, allocated_voice_ids
-end
-
-function unallocate_voice(note_num)
-  local id_prefix = nb_active_voice_same_note(note_num)
-  print("id_prefix="..id_prefix)
-  local note_id = id_prefix * 1000 + note_num
-  print("note_id="..note_id)
-
-  local voice_ids = note_id_voice_map[note_id]
-  if voice_ids == nil then
-    print("crap")
-    return note_id, {}
-  end
-
-  -- -- REVIEW: this is bad
-  -- if voices[voice_id].paired_leader then
-  --   table.insert(unallocated_voice_ids, voices[voice_id].paired_leader)
-  -- else
-  --   for i=1,NB_VOICES do
-  --     if voices[i].paired_leader == voice_id then
-  --       table.insert(unallocated_voice_ids, voices[i].paired_leader)
-  --     end
-  --   end
-  -- end
-
-  note_id_voice_map[note_id] = nil
-
-  return note_id, voice_ids
-end
-
-local env_graph
-local fenv_graph
-local f_graph
-
 
 -- -------------------------------------------------------------------------
 -- ui - pages
 
 local page_list = {'main', 'amp', 'filter', 'rot_mod', 'rot_mod_sliced'}
 local pages = UI.Pages.new(1, #page_list)
+
+local env_graph
+local fenv_graph
+local f_graph
 
 
 -- -------------------------------------------------------------------------
@@ -394,90 +291,6 @@ local function bleached_cc_cb(midi_msg)
 end
 
 
--- -------------------------------------------------------------------------
---
--- voices
-
--- REVIEW: store note_id so that we can remove voice from note_id_voice_map when dimnishing binaurality!
-
-function voice_on(voice_id, hz, vel, leader_id)
-  voices[voice_id].active = true
-  voices[voice_id].hz = hz
-  voices[voice_id].vel = vel
-  voices[voice_id].paired_leader = leader_id
-  engine.noteOn(voice_id, hz, vel)
-  nb_active_voices = nb_active_voices + 1
-end
-
-function voice_off(voice_id)
-  voices[voice_id].active = false
-  voices[voice_id].vel = 0
-  voices[voice_id].paired_leader = nil
-  engine.noteOff(voice_id)
-  nb_active_voices = nb_active_voices - 1
-end
-
--- -------------------------------------------------------------------------
---
--- meta-voices
-
-function enforce_associated_voices(leader_id, follower_id)
-  if voices[leader_id].active and not voices[follower_id].active then
-    local hz = voices[leader_id].hz
-    local vel = voices[leader_id].vel
-    voice_on(follower_id, hz, vel, leader_id)
-  end
-end
-
--- -------------------------------------------------------------------------
---
--- notes
-
-function note_on(note_num, vel)
-  local note_id, voice_ids = allocate_voice(note_num)
-  local hz = MusicUtil.note_num_to_freq(note_num)
-
-  print("------")
-  print("alloc: ")
-  tab.print(voice_ids)
-
-  local main_voice_id = voice_ids[1]
-
-  for i, voice_id in pairs(voice_ids) do
-    local leader_id = nil
-    if i > 1 then
-      leader_id = main_voice_id
-    end
-    voice_on(voice_id, hz, vel, leader_id)
-  end
-
-  nb_active_meta_voices = nb_active_meta_voices+1
-end
-
-function note_off(note_num)
-  local note_id, voice_ids = unallocate_voice(note_num)
-
-  print("------")
-  print("unalloc: ")
-  tab.print(voice_ids)
-
-  for _, voice_id in pairs(voice_ids) do
-    voice_off(voice_id)
-  end
-
-  nb_active_meta_voices = nb_active_meta_voices-1
-end
-
-
-function enforce_associated_voices_flex(a_id, b_id)
-  if voices[a_id].active and not voices[b_id].active then
-    enforce_associated_voices(a_id, b_id)
-  elseif voices[b_id].active and not voices[a_id].active then
-    enforce_associated_voices(b_id, a_id)
-  end
-end
-
-
 function aftertouch(v)
   -- review: don't use params for this but global state vars
   engine.cutoff_all(util.linexp(0, 1, params:get("cutoff"), math.min(params:get("cutoff") + ControlSpec.FREQ.maxval/10,ControlSpec.FREQ.maxval), v))
@@ -497,9 +310,9 @@ function midi_event(data)
   end
 
   if msg.type == "note_off" then
-    note_off(msg.note)
+    voiceutils.note_off(STATE, msg.note)
   elseif msg.type == "note_on" then
-    note_on(msg.note, msg.vel / 127)
+    voiceutils.note_on(STATE, msg.note, msg.vel / 127)
   elseif msg.type == "channel_pressure" then
     aftertouch(msg.val / 127)
   end
@@ -602,23 +415,38 @@ function init()
                local binaural_index = NB_VOICES * v;
                local pan_pct = v;
 
-               nb_dual_meta_voices = math.floor(binaural_index / 2)
-               nb_meta_voices = NB_VOICES - nb_dual_meta_voices
+               STATE.nb_dual_meta_voices = math.floor(binaural_index / 2)
+               STATE.nb_meta_voices = NB_VOICES - STATE.nb_dual_meta_voices
 
                -- tempty(paired_voices)
+
+               if STATE.nb_active_meta_voices < STATE.nb_dual_meta_voices and
+                 STATE.nb_active_voices * 2 < STATE.nb_active_meta_voices then
+                 print("moar voice!")
+               end
+
+               for i=1, NB_VOICES do
+                 if voices[i].paired_leader then
+                   local follower_voice_id = voiceutils.get_follower_maybe(STATE, i)
+                   if paired_v then
+                     voiceutils.enforce_associated_voices(STATE, i, follower_voice_id)
+                   end
+                 end
+               end
+
 
                for i=1, NB_VOICES do
                  local v_pan_dir = (mod1(i, 2) == 1) and -1 or 1
                  local v_pan_pct = 1
 
-                 -- TODO: replace w/ nb_active_meta_voices / dual_meta_voices test
+                 -- -- TODO: replace w/ STATE.nb_active_meta_voices / dual_meta_voices test
                  if i <= math.floor(binaural_index) and i%2 == 0 then
                    -- paired_voices[i-1] = i
                    -- paired_voices[i] = i-1
-                   enforce_associated_voices_flex(i-1, i)
+                   voiceutils.enforce_associated_voices_flex(STATE, i-1, i)
                  else
                    if voices[i].paired_leader then
-                     voice_off(i)
+                     voiceutils.voice_off(STATE, i)
                    end
                  end
 
@@ -692,7 +520,7 @@ function init()
                FREQ = mult * (BASE_FREQ/div)
                engine.freq_curr(FREQ)
 
-               voices[curr_voice_id].hz = FREQ
+               voices[STATE.curr_voice_id].hz = FREQ
   end}
   -- params:set("freq", BASE_FREQ)
 
@@ -953,7 +781,8 @@ function init()
   params:add_separator("internal_trimmers", "internal trimmers")
 
   for i=1,NB_VOICES do
-    params:add_group("internal_trimmers_v"..i, "voice #"..i, 2)
+    params:add_group("internal_trimmers_v"..i, "voice #"..i, 3)
+
     params:add{type = "control", id = "pitch_offness_max_"..i, name = "max pitch offness #"..i,
                controlspec = pct_control_bipolar, formatter = fmt_percent,
                action = function(v)
@@ -964,6 +793,12 @@ function init()
                controlspec = pct_control_bipolar, formatter = fmt_percent,
                action = function(v)
                  engine.cutoff_offness_max(i, v)
+    end}
+
+    params:add{type = "control", id = "pan_lfo_phase_"..i, name = "pan lfo phase #"..i,
+               controlspec = phase_control, formatter = fmt_phase,
+               action = function(v)
+                 engine.pan_lfo_phase(i, v)
     end}
   end
 
@@ -976,6 +811,8 @@ function init()
     params:set("pitch_offness_max_"..i, sign * (math.random(100+1)-1)/100)
     sign = (math.random(2) == 2) and 1 or -1
     params:set("cutoff_offness_max_"..i, sign * (math.random(100+1)-1)/100)
+
+    params:set("pan_lfo_phase_"..i, 2 * math.pi / i)
   end
 
   -- params:set("index1", 2)
@@ -1392,7 +1229,7 @@ function draw_page_main()
   local abscissa = screen_h/2
   local a = abscissa * 3/6
 
-  local freq = voices[curr_voice_id].hz
+  local freq = voices[STATE.curr_voice_id].hz
 
   local sign = 1
   local x_offset = screen_w/2
