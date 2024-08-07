@@ -46,6 +46,9 @@ Engine_Quilt : CroneEngine {
 			resonance = 0.0,
 			// panning
 			pan = 0,
+			pan_lfo_amount = 0.1,
+			pan_lfo_freq = 5,
+			pan_lfo_phase = 0,
 			// offness
 			phase_offset = 0.0,
 			pitch_offness_max = 0.0,
@@ -157,7 +160,7 @@ Engine_Quilt : CroneEngine {
 				relaxTime: 0.1 // fast release
 			);
 
-			Out.ar(0, Pan2.ar(compressed, pan));
+			Out.ar(0, Pan2.ar(compressed, pan * (1 - (pan_lfo_amount * SinOsc.kr(pan_lfo_freq, pan_lfo_phase, 0.5, 0.5)))));
 		}).add;
 
 		def.send(server);
@@ -214,6 +217,10 @@ Engine_Quilt : CroneEngine {
 			\resonance, 0.0,
 			// panning
 			\pan, 0.0,
+			// TODO: it works well but is almost "too much" -> only on last part of travel of binaurality knob
+			\pan_lfo_freq, 5,
+			\pan_lfo_phase, 0.0,
+			\pan_lfo_amount, 0.0,
 			// sat/comp
 			\sat_threshold, 0.5
 		]);

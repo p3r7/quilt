@@ -510,6 +510,10 @@ function init()
                end
   end}
 
+  params:add{type = "control", id = "pan_lfo_freq", name = "binaural pan freq",
+             controlspec = vib_rate_control, formatter = Formatters.format_freq,
+             action = engine.pan_lfo_freq_all}
+
 
   -- --------------------------------
   params:add_separator("main osc", "main osc")
