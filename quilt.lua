@@ -1239,10 +1239,27 @@ function draw_page_main()
   local p_pargin = 1
   local p_radius = 10
 
-  -- poles - main osc
+  -- poles - main osc voices
   for i=1,params:get("voice_count") do
     -- params:get("binaurality")
     draw_poles((p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5), p_radius+p_pargin, p_radius, voices[i].hz, voices[i].rot_angle, voices[i].active)
+    if i == STATE.next_voice_id then
+      screen.pixel(
+        util.round((p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5)),
+        util.round(2*p_radius+p_pargin) + 3)
+      screen.fill()
+    elseif i == STATE.curr_voice_id then
+      screen.pixel(
+        util.round((p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5)),
+        util.round(2*p_radius+p_pargin) + 2)
+      screen.pixel(
+        util.round((p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5)) + 1,
+        util.round(2*p_radius+p_pargin) + 3)
+      screen.pixel(
+        util.round((p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5)),
+        util.round(2*p_radius+p_pargin) + 4)
+      screen.fill()
+    end
   end
 
   -- poles - mod osc
