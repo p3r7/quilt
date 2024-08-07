@@ -99,7 +99,7 @@ Engine_Quilt : CroneEngine {
 			// npolarRotFreqSlicedSagLfo = Lag.kr(LFNoise1.kr(1), 0.1) * npolarRotFreqSliced_sag * semitoneDiff;
 			// npolarRotFreqSliced2 = npolarRotFreqSliced + npolarRotFreqSlicedSagLfo;
 
-			freq2 = freq + vibrato + ((semitoneDiff/10) * pitch_offness_max * pitch_offness_pct);
+			freq2 = freq + vibrato + ((semitoneDiff) * pitch_offness_max * pitch_offness_pct);
 			cutoff2 = cutoff + (7000 * cutoff_offness_max * cutoff_offness_pct);
 			npolarRotFreq2 = npolarRotFreq;
 			npolarRotFreqSliced2 = npolarRotFreqSliced;
@@ -140,7 +140,7 @@ Engine_Quilt : CroneEngine {
 
 			fenv = EnvGen.kr(Env.adsr(fattack, fdecay, fsustain, frelease), gate, doneAction: 0) * fenv_a;
 
-			instantCutoff = (cutoff2 * (1 + (fktrack * 2 * hzTrack)) + (fenv * 7000)).clip(20, 20000);
+			instantCutoff = (cutoff2 + (fktrack * (freq2.cpsmidi).clip(21, 127).linexp(21, 127, 27.5, 12543.85)) + fenv.linlin(0, 1, 0, 15000)).clip(20, 20000);
 
 			filtered = MoogFF.ar(in: phased,
 				freq: instantCutoff,
