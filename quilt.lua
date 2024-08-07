@@ -110,6 +110,7 @@ STATE = {
   note_id_voice_map = note_id_voice_map,
   nb_active_voices = 0,
   nb_active_meta_voices = 0,
+  nb_active_dual_voices = 0,
   nb_meta_voices = NB_VOICES,
   nb_dual_meta_voices = 0,
 }
@@ -121,7 +122,9 @@ for i=1,NB_VOICES do
     vel = 0,
     rot_angle = 0,
     pan = 0,
+    is_leader = false,
     paired_leader = nil,
+    paired_follower = nil,
   }
 end
 
@@ -417,40 +420,86 @@ function init()
                local binaural_index = NB_VOICES * v;
                local pan_pct = v;
 
-               STATE.nb_dual_meta_voices = math.floor(binaural_index / 2)
+               -- FIXME: calculation for STATE.nb_dual_meta_voices is crappy
+               STATE.nb_dual_meta_voices = util.round(binaural_index / 2)
                STATE.nb_meta_voices = NB_VOICES - STATE.nb_dual_meta_voices
 
-               -- tempty(paired_voices)
-
-               if STATE.nb_active_meta_voices < STATE.nb_dual_meta_voices and
-                 STATE.nb_active_voices * 2 < STATE.nb_active_meta_voices then
-                 print("moar voice!")
+               if voiceutils.some_voices_need_pair(STATE) then
+                 print("some voices need paired voices!")
                end
 
-               for i=1, NB_VOICES do
-                 if voices[i].paired_leader then
-                   local follower_voice_id = voiceutils.get_follower_maybe(STATE, i)
-                   if paired_v then
-                     voiceutils.enforce_associated_voices(STATE, i, follower_voice_id)
+               -- if STATE.nb_active_meta_voices <= STATE.nb_dual_meta_voices then
+               --   print(" !! 1. YES - "..STATE.nb_active_meta_voices.." < "..STATE.nb_dual_meta_voices)
+               -- else
+               --   print(" !! 1. NO - "..STATE.nb_active_meta_voices.." >= "..STATE.nb_dual_meta_voices)
+               -- end
+
+               -- if STATE.nb_active_voices < STATE.nb_active_meta_voices * 2 then
+               --   print(" !! 2. YES - "..STATE.nb_active_voices.." < " .. STATE.nb_active_meta_voices * 2)
+               -- else
+               --   print(" !! 2. NO - "..STATE.nb_active_voices.." >= " .. STATE.nb_active_meta_voices * 2)
+               -- end
+
+               local voice_id = 0
+               while voiceutils.some_voices_need_pair(STATE) do
+                 voice_id = voice_id+1
+                 if voice_id > NB_VOICES then
+                   print("!!!!!!! ERROR !!!!!!! - reach max voice pairing attempts. this might be a bug.")
+                   break
+                 end
+                 if voiceutils.is_solo_leader(STATE, voice_id) then
+                   local follower_id = voiceutils.get_free_follower_voice(STATE, voice_id)
+                   if follower_id then
+                     print(" -> pairing: " .. voice_id .." <- " .. follower_id)
+                     voiceutils.pair_voices(STATE, voice_id, follower_id)
+                   else
+                     print("!!!!!!! ERROR !!!!!!! - premature end of pairing. this might be a bug.")
                    end
                  end
                end
+
+               if voiceutils.some_voices_need_unpair(STATE) then
+                 print("some paired voices need to be unpaired!")
+                 print(STATE.nb_active_dual_voices.." > "..STATE.nb_dual_meta_voices)
+               end
+
+               voice_id = 0
+               while voiceutils.some_voices_need_unpair(STATE) do
+                 voice_id = voice_id+1
+                 if voice_id > NB_VOICES then
+                   print("!!!!!!! ERROR !!!!!!! - reach max voice unpairing attempts. this might be a bug.")
+                   break
+                 end
+                 if voiceutils.is_paired_leader(STATE, voice_id) then
+                   voiceutils.unpair_follower_voices(STATE, voice_id)
+                 end
+               end
+
+
+               -- for i=1, NB_VOICES do
+               --   if voices[i].paired_leader then
+               --     local follower_voice_id = voiceutils.get_follower_maybe(STATE, i)
+               --     if paired_v then
+               --       voiceutils.pair_voices(STATE, i, follower_voice_id)
+               --     end
+               --   end
+               -- end
 
 
                for i=1, NB_VOICES do
                  local v_pan_dir = (mod1(i, 2) == 1) and -1 or 1
                  local v_pan_pct = 1
 
-                 -- -- TODO: replace w/ STATE.nb_active_meta_voices / dual_meta_voices test
-                 if i <= math.floor(binaural_index) and i%2 == 0 then
-                   -- paired_voices[i-1] = i
-                   -- paired_voices[i] = i-1
-                   voiceutils.enforce_associated_voices_flex(STATE, i-1, i)
-                 else
-                   if voices[i].paired_leader then
-                     voiceutils.voice_off(STATE, i)
-                   end
-                 end
+                 -- -- -- TODO: replace w/ STATE.nb_active_meta_voices / dual_meta_voices test
+                 -- if i <= math.floor(binaural_index) and i%2 == 0 then
+                 --   -- paired_voices[i-1] = i
+                 --   -- paired_voices[i] = i-1
+                 --   voiceutils.pair_voices_flex(STATE, i-1, i)
+                 -- else
+                 --   if voices[i].paired_leader then
+                 --     voiceutils.voice_off(STATE, i)
+                 --   end
+                 -- end
 
                  if i >= math.floor(binaural_index) then
                    v_pan_pct = 1 - util.linlin(binaural_index, NB_VOICES, 0, 1, i)
