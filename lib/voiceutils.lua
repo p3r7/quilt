@@ -12,6 +12,7 @@ include("lib/consts")
 -- -------------------------------------------------------------------------
 -- notes
 
+
 function voiceutils.note_on(STATE, note_num, vel)
   local note_id, voice_ids = voiceutils.allocate_voice(STATE, note_num)
   local hz = MusicUtil.note_num_to_freq(note_num)
@@ -21,6 +22,8 @@ function voiceutils.note_on(STATE, note_num, vel)
   tab.print(voice_ids)
 
   local main_voice_id = voice_ids[1]
+
+  local nb_stolen_meta = voiceutils.how_many_are_active_leaders(STATE, voice_ids)
 
   for i, voice_id in pairs(voice_ids) do
     local leader_id = nil
@@ -33,7 +36,12 @@ function voiceutils.note_on(STATE, note_num, vel)
   if #voice_ids > 1 then
     STATE.nb_active_dual_voices = STATE.nb_active_dual_voices + 1
   end
-  STATE.nb_active_meta_voices = STATE.nb_active_meta_voices + 1
+
+  STATE.nb_active_meta_voices = STATE.nb_active_meta_voices + 1 - nb_stolen_meta
+  -- FIXME: this shouldn't be needed, and still we face it sometimes
+  if STATE.nb_active_meta_voices > NB_VOICES then
+    STATE.nb_active_meta_voices = NB_VOICES
+  end
   voiceutils.recompute_next_voice(STATE)
 end
 
@@ -52,6 +60,10 @@ function voiceutils.note_off(STATE, note_num)
     STATE.nb_active_dual_voices = STATE.nb_active_dual_voices - 1
   end
   STATE.nb_active_meta_voices = STATE.nb_active_meta_voices - 1
+  -- FIXME: this shouldn't be needed, and still we face it sometimes
+  if STATE.nb_active_meta_voices < 0 then
+    STATE.nb_active_meta_voices = 0
+  end
   voiceutils.recompute_next_voice(STATE)
 end
 
@@ -181,16 +193,32 @@ function voiceutils.some_voices_need_unpair(STATE)
   return ( STATE.nb_active_dual_voices > STATE.nb_dual_meta_voices )
 end
 
+function voiceutils.is_active_leader(STATE, voice_id)
+  return voices[voice_id].active and voices[voice_id].is_leader
+end
+
 function voiceutils.is_solo_leader(STATE, voice_id)
-  return ( voices[voice_id].active
-           and voices[voice_id].is_leader
+  return ( voiceutils.is_active_leader(STATE, voice_id)
            and not voices[voice_id].paired_follower )
 end
 
 function voiceutils.is_paired_leader(STATE, voice_id)
-  return ( voices[voice_id].active
-           and voices[voice_id].is_leader
+  return ( voiceutils.is_active_leader(STATE, voice_id)
            and voices[voice_id].paired_follower )
+end
+
+function voiceutils.how_many_are_active_leaders(STATE, voice_ids)
+  local count = 0
+  for _, voice_id in pairs(voice_ids) do
+    if voiceutils.is_active_leader(STATE, voice_id) then
+      count = count + 1
+    end
+  end
+  return count
+end
+
+function voiceutils.are_any_active_leader(STATE, voice_ids)
+  return ( voiceutils.how_many_are_active_leaders(STATE, voice_ids) > 0 )
 end
 
 function voiceutils.nb_active_same_note(STATE, note_id)

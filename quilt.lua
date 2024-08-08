@@ -36,7 +36,7 @@ local FilterGraph = require "filtergraph"
 
 local bleached = include("lib/bleached")
 
-local voiceutils = include("lib/voiceutils")
+voiceutils = include("lib/voiceutils")
 
 include("lib/core")
 include("lib/consts")
@@ -418,88 +418,59 @@ function init()
              controlspec = pct_control_off, formatter = fmt_percent,
              action = function(v)
                local binaural_index = NB_VOICES * v;
-               local pan_pct = v;
 
-               -- FIXME: calculation for STATE.nb_dual_meta_voices is crappy
+               -- voice pairing
+               local prev_nb_dual_meta_voices = STATE.nb_dual_meta_voices
                STATE.nb_dual_meta_voices = util.round(binaural_index / 2)
                STATE.nb_meta_voices = NB_VOICES - STATE.nb_dual_meta_voices
 
-               if voiceutils.some_voices_need_pair(STATE) then
-                 print("some voices need paired voices!")
-               end
+               if STATE.nb_dual_meta_voices ~= prev_nb_dual_meta_voices then
+                 -- if voiceutils.some_voices_need_pair(STATE) then
+                 --   print("some voices need paired voices!")
+                 -- end
 
-               -- if STATE.nb_active_meta_voices <= STATE.nb_dual_meta_voices then
-               --   print(" !! 1. YES - "..STATE.nb_active_meta_voices.." < "..STATE.nb_dual_meta_voices)
-               -- else
-               --   print(" !! 1. NO - "..STATE.nb_active_meta_voices.." >= "..STATE.nb_dual_meta_voices)
-               -- end
-
-               -- if STATE.nb_active_voices < STATE.nb_active_meta_voices * 2 then
-               --   print(" !! 2. YES - "..STATE.nb_active_voices.." < " .. STATE.nb_active_meta_voices * 2)
-               -- else
-               --   print(" !! 2. NO - "..STATE.nb_active_voices.." >= " .. STATE.nb_active_meta_voices * 2)
-               -- end
-
-               local voice_id = 0
-               while voiceutils.some_voices_need_pair(STATE) do
-                 voice_id = voice_id+1
-                 if voice_id > NB_VOICES then
-                   print("!!!!!!! ERROR !!!!!!! - reach max voice pairing attempts. this might be a bug.")
-                   break
+                 local voice_id = 0
+                 while voiceutils.some_voices_need_pair(STATE) do
+                   voice_id = voice_id+1
+                   if voice_id > NB_VOICES then
+                     -- print("!!!!!!! ERROR !!!!!!! - reach max voice pairing attempts. this might be a bug.")
+                     break
+                   end
+                   if voiceutils.is_solo_leader(STATE, voice_id) then
+                     local follower_id = voiceutils.get_free_follower_voice(STATE, voice_id)
+                     if follower_id then
+                       -- print(" -> pairing: " .. voice_id .." <- " .. follower_id)
+                       voiceutils.pair_voices(STATE, voice_id, follower_id)
+                     else
+                       -- print("!!!!!!! ERROR !!!!!!! - premature end of pairing. this might be a bug.")
+                       break
+                     end
+                   end
                  end
-                 if voiceutils.is_solo_leader(STATE, voice_id) then
-                   local follower_id = voiceutils.get_free_follower_voice(STATE, voice_id)
-                   if follower_id then
-                     print(" -> pairing: " .. voice_id .." <- " .. follower_id)
-                     voiceutils.pair_voices(STATE, voice_id, follower_id)
-                   else
-                     print("!!!!!!! ERROR !!!!!!! - premature end of pairing. this might be a bug.")
+
+                 -- if voiceutils.some_voices_need_unpair(STATE) then
+                 --   print("some paired voices need to be unpaired!")
+                 --   print(STATE.nb_active_dual_voices.." > "..STATE.nb_dual_meta_voices)
+                 -- end
+
+                 voice_id = 0
+                 while voiceutils.some_voices_need_unpair(STATE) do
+                   voice_id = voice_id+1
+                   if voice_id > NB_VOICES then
+                     -- print("!!!!!!! ERROR !!!!!!! - reach max voice unpairing attempts. this might be a bug.")
+                     break
+                   end
+                   if voiceutils.is_paired_leader(STATE, voice_id) then
+                     voiceutils.unpair_follower_voices(STATE, voice_id)
                    end
                  end
                end
 
-               if voiceutils.some_voices_need_unpair(STATE) then
-                 print("some paired voices need to be unpaired!")
-                 print(STATE.nb_active_dual_voices.." > "..STATE.nb_dual_meta_voices)
-               end
-
-               voice_id = 0
-               while voiceutils.some_voices_need_unpair(STATE) do
-                 voice_id = voice_id+1
-                 if voice_id > NB_VOICES then
-                   print("!!!!!!! ERROR !!!!!!! - reach max voice unpairing attempts. this might be a bug.")
-                   break
-                 end
-                 if voiceutils.is_paired_leader(STATE, voice_id) then
-                   voiceutils.unpair_follower_voices(STATE, voice_id)
-                 end
-               end
-
-
-               -- for i=1, NB_VOICES do
-               --   if voices[i].paired_leader then
-               --     local follower_voice_id = voiceutils.get_follower_maybe(STATE, i)
-               --     if paired_v then
-               --       voiceutils.pair_voices(STATE, i, follower_voice_id)
-               --     end
-               --   end
-               -- end
-
-
+               -- panning
+               local pan_pct = v;
                for i=1, NB_VOICES do
                  local v_pan_dir = (mod1(i, 2) == 1) and -1 or 1
                  local v_pan_pct = 1
-
-                 -- -- -- TODO: replace w/ STATE.nb_active_meta_voices / dual_meta_voices test
-                 -- if i <= math.floor(binaural_index) and i%2 == 0 then
-                 --   -- paired_voices[i-1] = i
-                 --   -- paired_voices[i] = i-1
-                 --   voiceutils.pair_voices_flex(STATE, i-1, i)
-                 -- else
-                 --   if voices[i].paired_leader then
-                 --     voiceutils.voice_off(STATE, i)
-                 --   end
-                 -- end
 
                  if i >= math.floor(binaural_index) then
                    v_pan_pct = 1 - util.linlin(binaural_index, NB_VOICES, 0, 1, i)
@@ -679,163 +650,163 @@ function init()
 
 
   -- --------------------------------
-  params:add_separator("filter", "filter")
+    params:add_separator("filter", "filter")
 
-  params:add{type = "control", id = "fenv_pct", name = "filter env %",
-             controlspec = pct_control_off, formatter = fmt_percent,
-             action = engine.fenv_a_all}
-  params:set("fenv_pct", 0.1)
+    params:add{type = "control", id = "fenv_pct", name = "filter env %",
+               controlspec = pct_control_off, formatter = fmt_percent,
+               action = engine.fenv_a_all}
+    params:set("fenv_pct", 0.1)
 
-  params:add{type = "control", id = "fktrack", name = "filter kbd track",
-             controlspec = pct_control_bipolar, action = engine.fktrack_all}
-  params:set("fktrack", 0.2)
+    params:add{type = "control", id = "fktrack", name = "filter kbd track",
+               controlspec = pct_control_bipolar, action = engine.fktrack_all}
+    params:set("fktrack", 0.2)
 
-  params:add{type = "control", id = "cutoff", name = "cutoff",
-             controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
-             action = function(v)
-               engine.cutoff_all(v)
-               f_graph:edit(nil, nil, v)
-               if page_list[pages.index] == 'filter' then
-                 screen_dirty = true
-               end
-  end}
+    params:add{type = "control", id = "cutoff", name = "cutoff",
+               controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
+               action = function(v)
+                 engine.cutoff_all(v)
+                 f_graph:edit(nil, nil, v)
+                 if page_list[pages.index] == 'filter' then
+                   screen_dirty = true
+                 end
+    end}
 
-  params:add{type = "control", id = "cutoff_sag", name = "cutoff sag",
-             controlspec = pct_control_off, formatter = fmt_percent,
-             action = engine.cutoff_sag_all}
-  params:set("cutoff_sag", 0.1)
+    params:add{type = "control", id = "cutoff_sag", name = "cutoff sag",
+               controlspec = pct_control_off, formatter = fmt_percent,
+               action = engine.cutoff_sag_all}
+    params:set("cutoff_sag", 0.1)
 
-  local moog_res = controlspec.new(0, 4, "lin", 0, 0.0, "")
-  params:add{type = "control", id = "res", name = "res",
-             controlspec = moog_res,
-             action = function(v)
-               engine.resonance_all(v)
-               f_graph:edit(nil, nil, nil, v/moog_res.maxval)
-               if page_list[pages.index] == 'filter' then
-                 screen_dirty = true
-               end
-  end}
-
-
+    local moog_res = controlspec.new(0, 4, "lin", 0, 0.0, "")
+    params:add{type = "control", id = "res", name = "res",
+               controlspec = moog_res,
+               action = function(v)
+                 engine.resonance_all(v)
+                 f_graph:edit(nil, nil, nil, v/moog_res.maxval)
+                 if page_list[pages.index] == 'filter' then
+                   screen_dirty = true
+                 end
+    end}
 
 
-  -- --------------------------------
-  params:add_separator("amp env", "amp env")
-
-  params:add{type = "control", id = "amp_offset", name = "Amp Offset",
-             controlspec = pct_control_off, formatter = format_percent,
-             action = engine.amp_offset_all}
-  params:add{type = "control", id = "amp_attack", name = "Amp Attack",
-             controlspec = ENV_ATTACK, formatter = Formatters.format_secs,
-             action = function(v)
-               engine.attack_all(v)
-               local nv = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, v)
-               env_graph:edit_adsr(nv, nil, nil, nil)
-               if page_list[pages.index] == 'amp' then
-                 screen_dirty = true
-               end
-  end}
-  params:add{type = "control", id = "amp_decay", name = "Amp Decay",
-             controlspec = ENV_DECAY, formatter = Formatters.format_secs,
-             action = function(v)
-               engine.decay_all(v)
-               local nv = util.explin(ENV_DECAY.minval, ENV_DECAY.maxval, 0, ENVGRAPH_T_MAX, v)
-               env_graph:edit_adsr(nil, nv, nil, nil)
-               if page_list[pages.index] == 'amp' then
-                 screen_dirty = true
-               end
-  end}
-  params:add{type = "control", id = "amp_sustain", name = "Amp Sustain",
-             controlspec = ENV_SUSTAIN,
-             action = function(v)
-               engine.sustain_all(v)
-               local nv = util.linlin(ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, 0, 1, v)
-               env_graph:edit_adsr(nil, nil, nv, nil)
-               if page_list[pages.index] == 'amp' then
-                 screen_dirty = true
-               end
-  end}
-  params:add{type = "control", id = "amp_release", name = "Amp Release",
-             controlspec = ENV_RELEASE, formatter = Formatters.format_secs,
-             action = function(v)
-               engine.release_all(v)
-               local nv = util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, v)
-               env_graph:edit_adsr(nil, nil, nil, nv)
-               if page_list[pages.index] == 'amp' then
-                 screen_dirty = true
-               end
-  end}
 
 
-  -- --------------------------------
-  params:add_separator("filter env", "filter env")
+    -- --------------------------------
+    params:add_separator("amp env", "amp env")
 
-  -- filter env
-  params:add{type = "control", id = "filter_attack", name = "Filter Attack",
-             controlspec = ENV_ATTACK, formatter = Formatters.format_secs,
-             action = function(v)
-               engine.fdecay_all(v)
-               local nv = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, v)
-               fenv_graph:edit_adsr(nv, nil, nil, nil)
-               if page_list[pages.index] == 'filter' then
-                 screen_dirty = true
-               end
-  end}
-  params:add{type = "control", id = "filter_decay", name = "Filter Decay",
-             controlspec = ENV_DECAY, formatter = Formatters.format_secs,
-             action = function(v)
-               engine.fdecay_all(v)
-               local nv = util.explin(ENV_DECAY.minval, ENV_DECAY.maxval, 0, ENVGRAPH_T_MAX, v)
-               fenv_graph:edit_adsr(nil, nv, nil, nil)
-               if page_list[pages.index] == 'filter' then
-                 screen_dirty = true
-               end
-  end}
-  params:add{type = "control", id = "filter_sustain", name = "Filter Sustain",
-             controlspec = ENV_SUSTAIN,
-             action = function(v)
-               engine.fsustain_all(v)
-               local nv = util.linlin(ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, 0, 1, v)
-               fenv_graph:edit_adsr(nil, nil, nv, nil)
-               if page_list[pages.index] == 'filter' then
-                 screen_dirty = true
-               end
-  end}
-  params:add{type = "control", id = "filter_release", name = "Filter Release",
-             controlspec = ENV_RELEASE, formatter = Formatters.format_secs,
-             action = function(v)
-               engine.frelease_all(v)
-               local nv = util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, v)
-               fenv_graph:edit_adsr(nil, nil, nil, nv)
-               if page_list[pages.index] == 'filter' then
-                 screen_dirty = true
-               end
-  end}
-  params:set("filter_attack", 1.0)
-  params:set("filter_release", 4.0)
-
-
-  -- --------------------------------
-  params:add_separator("vintage", "vintage")
-
-  local pct_sat_threshold = controlspec.new(0.1, 1, "lin", 0, 0.5, "")
-  params:add{type = "control", id = "sat_threshold", name = "sat/comp threshold",
-             controlspec = pct_sat_threshold,
-             action = engine.sat_threshold_all}
-
-  params:add{type = "control", id = "pitch_offness", name = "pitch offness",
-             controlspec = pct_control_off, formatter = fmt_percent,
-             action = engine.pitch_offness_pct_all}
-
-  params:add{type = "control", id = "cutoff_offness", name = "cutoff offness",
-             controlspec = pct_control_off, formatter = fmt_percent,
-             action = engine.cutoff_offness_pct_all}
+    params:add{type = "control", id = "amp_offset", name = "Amp Offset",
+               controlspec = pct_control_off, formatter = format_percent,
+               action = engine.amp_offset_all}
+    params:add{type = "control", id = "amp_attack", name = "Amp Attack",
+               controlspec = ENV_ATTACK, formatter = Formatters.format_secs,
+               action = function(v)
+                 engine.attack_all(v)
+                 local nv = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, v)
+                 env_graph:edit_adsr(nv, nil, nil, nil)
+                 if page_list[pages.index] == 'amp' then
+                   screen_dirty = true
+                 end
+    end}
+    params:add{type = "control", id = "amp_decay", name = "Amp Decay",
+               controlspec = ENV_DECAY, formatter = Formatters.format_secs,
+               action = function(v)
+                 engine.decay_all(v)
+                 local nv = util.explin(ENV_DECAY.minval, ENV_DECAY.maxval, 0, ENVGRAPH_T_MAX, v)
+                 env_graph:edit_adsr(nil, nv, nil, nil)
+                 if page_list[pages.index] == 'amp' then
+                   screen_dirty = true
+                 end
+    end}
+    params:add{type = "control", id = "amp_sustain", name = "Amp Sustain",
+               controlspec = ENV_SUSTAIN,
+               action = function(v)
+                 engine.sustain_all(v)
+                 local nv = util.linlin(ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, 0, 1, v)
+                 env_graph:edit_adsr(nil, nil, nv, nil)
+                 if page_list[pages.index] == 'amp' then
+                   screen_dirty = true
+                 end
+    end}
+    params:add{type = "control", id = "amp_release", name = "Amp Release",
+               controlspec = ENV_RELEASE, formatter = Formatters.format_secs,
+               action = function(v)
+                 engine.release_all(v)
+                 local nv = util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, v)
+                 env_graph:edit_adsr(nil, nil, nil, nv)
+                 if page_list[pages.index] == 'amp' then
+                   screen_dirty = true
+                 end
+    end}
 
 
-  -- --------------------------------
-  params:add_separator("internal_trimmers", "internal trimmers")
+    -- --------------------------------
+    params:add_separator("filter env", "filter env")
 
-  for i=1,NB_VOICES do
+    -- filter env
+    params:add{type = "control", id = "filter_attack", name = "Filter Attack",
+               controlspec = ENV_ATTACK, formatter = Formatters.format_secs,
+               action = function(v)
+                 engine.fdecay_all(v)
+                 local nv = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, v)
+                 fenv_graph:edit_adsr(nv, nil, nil, nil)
+                 if page_list[pages.index] == 'filter' then
+                   screen_dirty = true
+                 end
+    end}
+    params:add{type = "control", id = "filter_decay", name = "Filter Decay",
+               controlspec = ENV_DECAY, formatter = Formatters.format_secs,
+               action = function(v)
+                 engine.fdecay_all(v)
+                 local nv = util.explin(ENV_DECAY.minval, ENV_DECAY.maxval, 0, ENVGRAPH_T_MAX, v)
+                 fenv_graph:edit_adsr(nil, nv, nil, nil)
+                 if page_list[pages.index] == 'filter' then
+                   screen_dirty = true
+                 end
+    end}
+    params:add{type = "control", id = "filter_sustain", name = "Filter Sustain",
+               controlspec = ENV_SUSTAIN,
+               action = function(v)
+                 engine.fsustain_all(v)
+                 local nv = util.linlin(ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, 0, 1, v)
+                 fenv_graph:edit_adsr(nil, nil, nv, nil)
+                 if page_list[pages.index] == 'filter' then
+                   screen_dirty = true
+                 end
+    end}
+    params:add{type = "control", id = "filter_release", name = "Filter Release",
+               controlspec = ENV_RELEASE, formatter = Formatters.format_secs,
+               action = function(v)
+                 engine.frelease_all(v)
+                 local nv = util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, v)
+                 fenv_graph:edit_adsr(nil, nil, nil, nv)
+                 if page_list[pages.index] == 'filter' then
+                   screen_dirty = true
+                 end
+    end}
+    params:set("filter_attack", 1.0)
+    params:set("filter_release", 4.0)
+
+
+    -- --------------------------------
+    params:add_separator("vintage", "vintage")
+
+    local pct_sat_threshold = controlspec.new(0.1, 1, "lin", 0, 0.5, "")
+    params:add{type = "control", id = "sat_threshold", name = "sat/comp threshold",
+               controlspec = pct_sat_threshold,
+               action = engine.sat_threshold_all}
+
+    params:add{type = "control", id = "pitch_offness", name = "pitch offness",
+               controlspec = pct_control_off, formatter = fmt_percent,
+               action = engine.pitch_offness_pct_all}
+
+    params:add{type = "control", id = "cutoff_offness", name = "cutoff offness",
+               controlspec = pct_control_off, formatter = fmt_percent,
+               action = engine.cutoff_offness_pct_all}
+
+
+    -- --------------------------------
+    params:add_separator("internal_trimmers", "internal trimmers")
+
+    for i=1,NB_VOICES do
     params:add_group("internal_trimmers_v"..i, "voice #"..i, 3)
 
     params:add{type = "control", id = "pitch_offness_max_"..i, name = "max pitch offness #"..i,
