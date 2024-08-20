@@ -4,6 +4,7 @@
 -- screen
 
 ROT_FPS = 30 -- NB: there is no point in making it faster than FPS
+ENV_FPS = 30
 
 FPS = 15
 if norns.version == "update	231108" then
