@@ -9,6 +9,7 @@ Engine_Quilt : CroneEngine {
 		def = SynthDef(\Quilt, {
 			arg out = 0,
 			gate = 0,
+			pairing_gate = 0,
 			vel = 0.5,
 			freq = 200,
 			freq_sag = 0.1,
@@ -69,7 +70,7 @@ Engine_Quilt : CroneEngine {
 			// looked-up waveforms (by index)
 			var signal1, signal2, signal3, signal4;
 			// amp enveloppe
-			var env, scaledEnv;
+			var env, pairingEnv, scaledEnv;
 			// filter enveloppe
 			var fenv, instantCutoff;
 			// processed waveform
@@ -136,7 +137,10 @@ Engine_Quilt : CroneEngine {
 			phased = mixed * phase2 * phaseSliced2;
 
 			env = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 0);
-			scaledEnv = (1 - amp_offset) * env + amp_offset;
+			// NB: other enveloppe for when a voice is dynamically paired
+			// same props as `env` except the slow attack & release to smooth up when bringing the voices in/out
+			pairingEnv = EnvGen.kr(Env.adsr(0.7, decay, sustain, 0.7), pairing_gate, doneAction: 0);
+			scaledEnv = (1 - amp_offset) * (env + pairingEnv) + amp_offset;
 
 			fenv = EnvGen.kr(Env.adsr(fattack, fdecay, fsustain, frelease), gate, doneAction: 0) * fenv_a;
 
@@ -250,6 +254,12 @@ Engine_Quilt : CroneEngine {
 			var vel = msg[3];
 			var voiceID = synth.noteOn(noteId, freq, vel);
 		});
+		this.addCommand("noteOnPaired", "iif", { arg msg;
+			var noteId = msg[1];
+			var freq = msg[2];
+			var vel = msg[3];
+			var voiceID = synth.noteOnPaired(noteId, freq, vel);
+		});
 		this.addCommand("noteOff", "i", { arg msg;
 			var noteId = msg[1];
 			synth.noteOff(noteId);
@@ -288,12 +298,20 @@ PolyDef {
 	noteOn { |voiceId, freq, vel|
 		var voice = voices[voiceId];
 		currVoice = voice;
-		voice.set(\freq, freq, \vel, vel, \gate, 1);
+		voice.set(\freq, freq, \vel, vel,
+			\gate, 1, \pairing_gate, 0);
+	}
+
+	noteOnPaired { |voiceId, freq, vel|
+		var voice = voices[voiceId];
+		currVoice = voice;
+		voice.set(\freq, freq, \vel, vel,
+			\gate, 0, \pairing_gate, 1);
 	}
 
 	noteOff { |voiceId, noteId|
 		var voice = voices[voiceId];
-		voice.set(\gate, 0);
+		voice.set(\gate, 0, \pairing_gate, 0);
 	}
 
 	setPolyphony { |nbVoices|
