@@ -86,11 +86,13 @@ function voiceutils.voice_on(STATE, voice_id, hz, vel, note_id, leader_id)
     STATE.voices[leader_id].paired_follower = voice_id
   else
     STATE.voices[voice_id].is_leader = true
+    STATE.last_played_voice = voice_id
   end
   engine.noteOn(voice_id, hz, vel)
   if not was_active then
     STATE.nb_active_voices = STATE.nb_active_voices + 1
   end
+  STATE.voices[voice_id].note_just_on = true
 end
 
 function voiceutils.voice_off(STATE, voice_id)
@@ -105,6 +107,7 @@ function voiceutils.voice_off(STATE, voice_id)
   STATE.voices[voice_id].note_id = nil
   engine.noteOff(voice_id)
   STATE.nb_active_voices = STATE.nb_active_voices - 1
+  STATE.voices[voice_id].note_just_off = true
 end
 
 
