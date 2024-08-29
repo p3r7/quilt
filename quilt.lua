@@ -111,9 +111,6 @@ STATE = {
   curr_voice_id = 1,
   next_voice_id = 1,
   note_id_voice_map = note_id_voice_map,
-  nb_active_voices = 0,
-  nb_active_meta_voices = 0,
-  nb_active_dual_voices = 0,
   nb_meta_voices = NB_VOICES,
   nb_dual_meta_voices = 0,
 }

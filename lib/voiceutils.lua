@@ -23,7 +23,7 @@ function voiceutils.note_on(STATE, note_num, vel)
 
   local main_voice_id = voice_ids[1]
 
-  local nb_stolen_meta = voiceutils.how_many_are_active_leaders(STATE, voice_ids)
+  -- local nb_stolen_meta = voiceutils.how_many_are_active_leaders(STATE, voice_ids)
 
   for i, voice_id in pairs(voice_ids) do
     local leader_id = nil
@@ -33,15 +33,6 @@ function voiceutils.note_on(STATE, note_num, vel)
     voiceutils.voice_on(STATE, voice_id, hz, vel, note_id, leader_id)
   end
 
-  if #voice_ids > 1 then
-    STATE.nb_active_dual_voices = STATE.nb_active_dual_voices + 1
-  end
-
-  STATE.nb_active_meta_voices = STATE.nb_active_meta_voices + 1 - nb_stolen_meta
-  -- FIXME: this shouldn't be needed, and still we face it sometimes
-  if STATE.nb_active_meta_voices > NB_VOICES then
-    STATE.nb_active_meta_voices = NB_VOICES
-  end
   voiceutils.recompute_next_voice(STATE)
 end
 
@@ -56,14 +47,6 @@ function voiceutils.note_off(STATE, note_num)
     voiceutils.voice_off(STATE, voice_id)
   end
 
-  if #voice_ids > 1 then
-    STATE.nb_active_dual_voices = STATE.nb_active_dual_voices - 1
-  end
-  STATE.nb_active_meta_voices = STATE.nb_active_meta_voices - 1
-  -- FIXME: this shouldn't be needed, and still we face it sometimes
-  if STATE.nb_active_meta_voices < 0 then
-    STATE.nb_active_meta_voices = 0
-  end
   voiceutils.recompute_next_voice(STATE)
 end
 
@@ -73,7 +56,7 @@ end
 
 -- REVIEW: use stored note_id so that we can remove voice from STATE.note_id_voice_map when dimnishing binaurality!
 
-function voiceutils.voice_on(STATE, voice_id, hz, vel, note_id, leader_id)
+function voiceutils.voice_on(STATE, voice_id, hz, vel, note_id, leader_id, dynamic_pairing)
   local was_active = STATE.voices[voice_id].active
   STATE.voices[voice_id].active = true
   STATE.voices[voice_id].hz = hz
@@ -84,14 +67,16 @@ function voiceutils.voice_on(STATE, voice_id, hz, vel, note_id, leader_id)
     STATE.voices[voice_id].paired_leader = leader_id
     STATE.voices[leader_id].is_leader = true
     STATE.voices[leader_id].paired_follower = voice_id
-    engine.noteOnPaired(voice_id, hz, vel)
+    if dynamic_pairing then
+      engine.noteOnPaired(voice_id, hz, vel)
+    else
+      -- leader & follower voices are paired as note start -> use same env
+      engine.noteOn(voice_id, hz, vel)
+    end
   else
     STATE.voices[voice_id].is_leader = true
     STATE.last_played_voice = voice_id
     engine.noteOn(voice_id, hz, vel)
-  end
-  if not was_active then
-    STATE.nb_active_voices = STATE.nb_active_voices + 1
   end
   STATE.voices[voice_id].note_just_on = true
 end
@@ -107,7 +92,6 @@ function voiceutils.voice_off(STATE, voice_id)
   STATE.voices[voice_id].paired_follower = nil
   STATE.voices[voice_id].note_id = nil
   engine.noteOff(voice_id)
-  STATE.nb_active_voices = STATE.nb_active_voices - 1
   STATE.voices[voice_id].note_just_off = true
 end
 
@@ -146,8 +130,8 @@ function voiceutils.get_next_free_voice(STATE, next_voice_id, step)
   end
 
   -- there is no free voice next, so we'll do voice stealing on the pre-computed voice
-  if STATE.nb_active_voices >= voice_count then
-      return next_voice_id
+  if voiceutils.nb_active_voices(STATE) >= voice_count then
+    return next_voice_id
   end
 
   -- there is at least one free voice, move to it!
@@ -157,7 +141,8 @@ function voiceutils.get_next_free_voice(STATE, next_voice_id, step)
     next_voice_id = mod1(next_voice_id+step, voice_count)
     try = try + 1
     if try > voice_count/step then
-      print("!!!!!!! ERROR !!!!!!! - reach max voice alloc attempts. this is a bug.")
+      -- NB: this happens when dynamically paring voices (`step` > 1) and the only remaining voice to pair is of same "polarity" (odd/even) as the last free one.
+      -- print("!!!!!!! WANR !!!!!!! - reach max voice alloc attempts.")
       return nil
     end
   end
@@ -173,7 +158,7 @@ function voiceutils.recompute_next_voice(STATE)
   end
 
   -- there is no free voice next, so we'll do voice stealing on the pre-computed voice
-  if STATE.nb_active_voices >= params:get("voice_count") then
+  if voiceutils.nb_active_voices(STATE) >= params:get("voice_count") then
     return
   end
 
@@ -189,12 +174,12 @@ end
 -- meta-voices
 
 function voiceutils.some_voices_need_pair(STATE)
-  return ( STATE.nb_active_dual_voices < STATE.nb_dual_meta_voices
-           and STATE.nb_active_voices < STATE.nb_active_meta_voices * 2)
+  return ( voiceutils.nb_active_dual_voices(STATE) < STATE.nb_dual_meta_voices
+           and voiceutils.nb_active_voices(STATE) < voiceutils.nb_active_meta_voices(STATE) * 2)
 end
 
 function voiceutils.some_voices_need_unpair(STATE)
-  return ( STATE.nb_active_dual_voices > STATE.nb_dual_meta_voices )
+  return ( voiceutils.nb_active_dual_voices(STATE) > STATE.nb_dual_meta_voices )
 end
 
 function voiceutils.is_active_leader(STATE, voice_id)
@@ -257,8 +242,8 @@ function voiceutils.get_follower_maybe(STATE, voice_id)
     return
   end
 
-  if STATE.nb_active_meta_voices < STATE.nb_dual_meta_voices
-    and STATE.nb_active_voices < params:get("voice_count") then
+  if voiceutils.nb_active_meta_voices(STATE) < STATE.nb_dual_meta_voices
+    and voiceutils.nb_active_voices(STATE) < params:get("voice_count") then
     -- print("yes")
     return voiceutils.get_free_follower(STATE, voice_id)
   end
@@ -344,10 +329,9 @@ function voiceutils.pair_voices(STATE, leader_id, follower_id)
     local hz = STATE.voices[leader_id].hz
     local vel = STATE.voices[leader_id].vel
     local note_id = STATE.voices[leader_id].note_id
-    voiceutils.voice_on(STATE, follower_id, hz, vel, note_id, leader_id)
+    voiceutils.voice_on(STATE, follower_id, hz, vel, note_id, leader_id, true)
     -- REVIEW: this might not be the best spot for this?
     STATE.note_id_voice_map[note_id] = {leader_id, follower_id}
-    STATE.nb_active_dual_voices = STATE.nb_active_dual_voices + 1
   end
 end
 
@@ -365,7 +349,6 @@ function voiceutils.unpair_follower_voices(STATE, leader_id)
 
   -- REVIEW: this might not be the best spot for this?
   STATE.note_id_voice_map[note_id] = {leader_id}
-  STATE.nb_active_dual_voices = STATE.nb_active_dual_voices - 1
 end
 
 function voiceutils.pair_voices_flex(STATE, a_id, b_id)
@@ -374,6 +357,36 @@ function voiceutils.pair_voices_flex(STATE, a_id, b_id)
   elseif STATE.voices[b_id].active and not STATE.voices[a_id].active then
     voiceutils.enforce_associated_voices(STATE, b_id, a_id)
   end
+end
+
+
+-- -------------------------------------------------------------------------
+-- pure functions
+
+function voiceutils.nb_voices_satisfying(STATE, fn)
+  local count = 0
+  for i=1,NB_VOICES do
+    if fn(STATE.voices[i]) then
+      count = count + 1
+    end
+  end
+  return count
+end
+
+function voiceutils.nb_active_voices(STATE)
+  return voiceutils.nb_voices_satisfying(STATE, function(v) return v.active end)
+end
+
+function voiceutils.nb_active_meta_voices(STATE)
+  return voiceutils.nb_voices_satisfying(STATE, function(v)
+                                           return v.active and not v.paired_leader
+  end)
+end
+
+function voiceutils.nb_active_dual_voices(STATE)
+  return voiceutils.nb_voices_satisfying(STATE, function(v)
+                                           return v.active and v.paired_leader
+  end)
 end
 
 
