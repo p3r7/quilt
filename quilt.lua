@@ -37,6 +37,7 @@ local FilterGraph = require "filtergraph"
 local bleached = include("lib/bleached")
 
 voiceutils = include("lib/voiceutils")
+waveutils  = include("lib/waveutils")
 
 include("lib/core")
 include("lib/consts")
@@ -46,8 +47,6 @@ engine.name = "Quilt"
 
 -- -------------------------------------------------------------------------
 -- consts
-
-local WAVESHAPES = {"SIN", "SAW", "TRI", "SQR"}
 
 function screen_size()
   if seamstress then
@@ -80,8 +79,6 @@ screen_dirty = true
 
 BASE_FREQ = 110/2
 FREQ = BASE_FREQ
-effective_period = 2
-effective_freq = FREQ
 
 PITCH_COMPENSATION_MOD = true
 -- PITCH_COMPENSATION_MOD = false
@@ -113,12 +110,18 @@ STATE = {
   note_id_voice_map = note_id_voice_map,
   nb_meta_voices = NB_VOICES,
   nb_dual_meta_voices = 0,
+
+  effective_period = 2,
+  effective_freq = FREQ,
 }
 
 for i=1,NB_VOICES do
   voices[i] = {
     active = false,
+
+    base_hz = 20,
     hz = 20,
+
     vel = 0,
     rot_angle = 0,
     pan = 0,
@@ -154,58 +157,8 @@ local f_graph
 -- -------------------------------------------------------------------------
 -- freq / period calculation
 
-function find_effective_period(poles)
-  local n = #poles
-
-  for period = 1, math.floor(n/2) do
-    local is_periodic = true
-    for i = 1, period do
-      for j = i + period, n, period do
-        if poles[i] ~= poles[j] then
-          is_periodic = false
-          break
-        end
-      end
-      if not is_periodic then
-        break
-      end
-    end
-    if is_periodic then
-      return period
-    end
-  end
-  return n
-end
-
-
 function recompute_effective_freq(freq, mod)
-  if freq == nil then
-    freq = params:get("freq")
-  end
-  if mod == nil then
-    mod = params:get("mod")
-  end
-
-  local poles = {}
-  local sign = 1
-  local rev = (mod % 2 == 0) and 1 or -1
-  for i=1,mod do
-    local wi = math.floor(mod1(i, #WAVESHAPES))
-    local pole = params:get("index"..wi)
-    poles[i] = sign * pole
-    poles[mod+i] = rev * sign * pole
-    sign = -sign
-  end
-
-  -- tab.print(poles)
-
-  effective_period = find_effective_period(poles)
-  if effective_period > mod then
-    effective_period = effective_period / 4.3
-  end
-  -- print("effective_period="..effective_period)
-
-  effective_freq = freq * 2 / effective_period
+  STATE.effective_period, STATE.effective_freq = waveutils.get_effective_freq(freq, mod)
 end
 
 
@@ -547,32 +500,39 @@ function init()
   params:add{type = "control", id = "freq", name = "freq",
              controlspec = CS_MIDLOWFREQ, formatter = Formatters.format_freq,
              action = function(v)
-               BASE_FREQ = v
+               -- BASE_FREQ = v
+               -- local mod = params:get("mod")
+
+               -- recompute_effective_freq(BASE_FREQ, mod)
+
+               -- local div = 1
+               -- if PITCH_COMPENSATION_SYNC then
+               --   div = params:get("sync_ratio")/4
+               -- end
+               -- local mult = 1
+
+               -- if PITCH_COMPENSATION_MOD then
+               --   mult = STATE.effective_period/2
+               -- end
+               -- FREQ = mult * (BASE_FREQ/div)
+
+               local freq = v
                local mod = params:get("mod")
 
-               recompute_effective_freq(BASE_FREQ, mod)
+               recompute_effective_freq(freq, mod) --NB: deprecated soon
+               local FREQ = waveutils.compensated_freq(STATE, freq, mod)
 
-               local div = 1
-               if PITCH_COMPENSATION_SYNC then
-                 div = params:get("sync_ratio")/4
-               end
-               local mult = 1
+               print(freq .. " -> " ..FREQ)
 
-               if PITCH_COMPENSATION_MOD then
-                 mult = effective_period/2
-               end
-               FREQ = mult * (BASE_FREQ/div)
                engine.freq_curr(FREQ)
-
                voices[STATE.curr_voice_id].hz = FREQ
   end}
   -- params:set("freq", BASE_FREQ)
 
-  params:add{type = "control", id = "freq_sag", name = "freq sag",
-             controlspec = pct_control_off, formatter = fmt_percent,
-             action = engine.freq_sag_all}
-  params:set("freq_sag", 0.1)
-
+  -- params:add{type = "control", id = "freq_sag", name = "freq sag",
+  --            controlspec = pct_control_off, formatter = fmt_percent,
+  --            action = engine.freq_sag_all}
+  -- params:set("freq_sag", 0.1)
 
   params:add{type = "control", id = "vib_rate", name = "vibrato rate",
              controlspec = vib_rate_control, formatter = Formatters.format_freq,
@@ -590,21 +550,38 @@ function init()
              min = 2, max = 15, default = 3,
              action = function(v)
                engine.mod_all(v)
+
+               -- local mod = v
+
+               -- recompute_effective_freq(BASE_FREQ, mod)
+
+               -- local div = 1
+               -- if PITCH_COMPENSATION_SYNC then
+               --   div = params:get("sync_ratio")/4
+               -- end
+               -- local mult = 1
+
+               -- if PITCH_COMPENSATION_MOD then
+               --   mult = STATE.effective_period/2
+               -- end
+               -- FREQ = mult * (BASE_FREQ/div)
+
+
+               -- TODO: do it on all voices
+               local freq = voices[STATE.curr_voice_id].hz
                local mod = v
 
-               recompute_effective_freq(BASE_FREQ, mod)
-
-               local div = 1
-               if PITCH_COMPENSATION_SYNC then
-                 div = params:get("sync_ratio")/4
+               if not freq then
+                 return
                end
-               local mult = 1
 
-               if PITCH_COMPENSATION_MOD then
-                 mult = effective_period/2
-               end
-               FREQ = mult * (BASE_FREQ/div)
+               recompute_effective_freq(freq, mod) --NB: deprecated soon
+               local FREQ = waveutils.compensated_freq(STATE, freq, mod)
+
+               print(freq .. " -> " ..FREQ)
+
                engine.freq_curr(FREQ)
+               voices[STATE.curr_voice_id].hz = FREQ
 
                screen_dirty = true
   end}
@@ -1080,6 +1057,7 @@ function draw_wave(waveshape,
                    segment, nb_segments,
                    mod1_a, mod2_a,
                    mod1hz, mod2hz)
+
   if dir == nil then
     dir = 1
   end
@@ -1419,9 +1397,9 @@ function draw_page_main()
 
   -- metrics
   screen.move(0, screen_h)
-  local msg = "f="..Formatters.format_freq_raw(params:get("freq")).." -> "..Formatters.format_freq_raw(effective_freq)
+  local msg = "f="..Formatters.format_freq_raw(params:get("freq")).." -> "..Formatters.format_freq_raw(STATE.effective_freq)
   if PITCH_COMPENSATION_MOD then
-    msg = msg .. " -> " .. (effective_freq * effective_period/2)
+    msg = msg .. " -> " .. (STATE.effective_freq * STATE.effective_period/2)
   end
   screen.text(msg)
 end

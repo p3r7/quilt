@@ -59,7 +59,8 @@ end
 function voiceutils.voice_on(STATE, voice_id, hz, vel, note_id, leader_id, dynamic_pairing)
   local was_active = STATE.voices[voice_id].active
   STATE.voices[voice_id].active = true
-  STATE.voices[voice_id].hz = hz
+  STATE.voices[voice_id].base_hz = hz
+  STATE.voices[voice_id].hz = hz -- TODO: use `waveutils.compensated_freq`
   STATE.voices[voice_id].vel = vel
   STATE.voices[voice_id].note_id = note_id
   if leader_id then
