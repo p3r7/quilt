@@ -144,7 +144,8 @@ function voiceutils.get_next_free_voice(STATE, next_voice_id, step)
     if try > voice_count/step then
       -- NB: this happens when dynamically paring voices (`step` > 1) and the only remaining voice to pair is of same "polarity" (odd/even) as the last free one.
       -- print("!!!!!!! WANR !!!!!!! - reach max voice alloc attempts.")
-      return nil
+      -- return nil
+      return voiceutils.get_next_free_voice(STATE, next_voice_id, 1)
     end
   end
 
