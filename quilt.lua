@@ -1376,7 +1376,8 @@ function draw_page_main()
   screen.move(x_offset, abscissa)
   for i=1,half_waves do
     for j=1,sync_ratio do
-      local wi = math.floor(mod1(i * j, #WAVESHAPES))
+      -- local wi = util.clamp(mod1((i-1) * j, #WAVESHAPES), 1, #WAVESHAPES)
+      local wi = mod1(i + (j - 1), #WAVESHAPES)
       local waveshape = params:string("index"..wi)
       local mod1_a = linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), params:get("npolar_rot_amount"))
       local mod2_a =  linlin(0, 1, 1, amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1), params:get("npolar_rot_amount_sliced"))
@@ -1397,7 +1398,8 @@ function draw_page_main()
   screen.move(x_offset, abscissa)
   for i=1,half_waves do
     for j=1,sync_ratio do
-      local wi = math.floor(mod1(i * j, #WAVESHAPES))
+      -- local wi = math.floor(mod1(i * j, #WAVESHAPES))
+      local wi = mod1(i + (j - 1), #WAVESHAPES)
       local waveshape = params:string("index"..wi)
       local mod1_a = linlin(0, 1, 1, -amp_for_pole(i, mod, rot_angle, 1, -1), params:get("npolar_rot_amount"))
       local mod2_a =  linlin(0, 1, 1, -amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1, -1), params:get("npolar_rot_amount_sliced"))
