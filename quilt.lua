@@ -137,6 +137,7 @@ for i=1,NB_VOICES do
 
     aenv = 0,
     aenv_offset = 0,
+    aenv_travel = 0,
     fenv = 0,
     fenv_offset = 0,
     fenv_travel = 0,
@@ -978,6 +979,23 @@ end
 -- -------------------------------------------------------------------------
 -- display recalculations
 
+function update_voice_aenv(voice_id)
+  local ad_t = params:get("amp_attack") + params:get("amp_decay")
+
+  if voices[voice_id].active then
+    if voices[voice_id].t_since_note_on <= params:get("amp_attack") then
+      voices[voice_id].aenv = util.linlin(0, params:get("amp_attack"), 0, 1, voices[voice_id].t_since_note_on)
+      voices[voice_id].aenv_travel = voices[voice_id].t_since_note_on
+    else
+      voices[voice_id].aenv = util.linlin(0, params:get("amp_decay"), 1, params:get("amp_sustain"), voices[voice_id].t_since_note_on - params:get("amp_attack"))
+      voices[voice_id].aenv_travel = math.min(voices[voice_id].t_since_note_on, ad_t)
+    end
+  else
+    voices[voice_id].aenv = util.linlin(0, params:get("amp_release"), voices[voice_id].fenv, 0, voices[voice_id].t_since_note_off)
+    voices[voice_id].aenv_travel = math.min(ad_t + voices[voice_id].t_since_note_off, ad_t + params:get("amp_release"))
+  end
+end
+
 function update_voice_fenv(voice_id)
   local ad_t = params:get("filter_attack") + params:get("filter_decay")
 
@@ -1030,9 +1048,10 @@ function env_tick()
       voices[i].t_since_note_off = voices[i].t_since_note_off + elapsed_t
     end
 
+    update_voice_aenv(i)
     update_voice_fenv(i)
-    update_intant_cutoff()
   end
+  update_intant_cutoff()
 end
 
 function rot_tick()
@@ -1441,6 +1460,51 @@ function draw_page_main()
   screen.text(msg)
 end
 
+function draw_aenv()
+  screen.aa(0)
+
+  local ad_t  = params:get("amp_attack") + params:get("amp_decay")
+  local adr_t = ad_t + params:get("amp_release")
+
+  local a_w = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval,
+                          0, ENVGRAPH_T_MAX,
+                          params:get("amp_attack"))
+  local d_w = util.explin(ENV_DECAY.minval,  ENV_DECAY.maxval,
+                          0, ENVGRAPH_T_MAX,
+                          params:get("amp_decay"))
+  local r_w = util.explin(ENV_RELEASE.minval,  ENV_RELEASE.maxval,
+                          0, ENVGRAPH_T_MAX,
+                          params:get("amp_release"))
+
+  for voice_id=1,NB_VOICES do
+    local y = 64 - ENV_GRAPH_H - 10 - voice_id
+
+    local aenv_travel = voices[voice_id].aenv_travel
+    if aenv_travel < (ad_t - 0.1) then
+      local x = util.linlin(0, ad_t,
+                            0, (a_w + d_w) * ENV_GRAPH_W,
+                            aenv_travel)
+      screen.pixel(ENV_GRAPH_X + x, y)
+      screen.stroke()
+    elseif math.abs(aenv_travel - ad_t) <= 0.1 then
+      local x1 = (a_w + d_w) * ENV_GRAPH_W
+      local x2 = ENV_GRAPH_W - r_w * ENV_GRAPH_W
+      screen.move(ENV_GRAPH_X + x1, y)
+      screen.line(ENV_GRAPH_X + x2, y)
+      screen.stroke()
+    elseif aenv_travel < adr_t then
+      local x = util.linlin(0, adr_t,
+                            ENV_GRAPH_W - r_w * ENV_GRAPH_W, ENV_GRAPH_W,
+                            aenv_travel)
+      screen.pixel(ENV_GRAPH_X + x, y)
+      screen.stroke()
+      -- TODO
+    end
+  end
+
+  screen.aa(1)
+end
+
 function draw_fenv()
   screen.aa(0)
 
@@ -1497,11 +1561,11 @@ end
   elseif curr_page == 'amp' then
     draw_voices()
     env_graph:redraw()
+    draw_aenv()
   elseif curr_page == 'filter' then
     draw_voices()
     fenv_graph:redraw()
     draw_fenv()
-
     f_graph:redraw()
     f_instant_graph:redraw()
   elseif curr_page == 'rot_mod' then
