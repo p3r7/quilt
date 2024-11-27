@@ -133,12 +133,13 @@ for i=1,NB_VOICES do
     note_just_on      = false,
     t_since_note_on   = 0,
     note_just_off     = false,
-    t_since_note_off  = 0,
+    t_since_note_off  = ENV_RELEASE.maxval,
 
     aenv = 0,
     aenv_offset = 0,
     fenv = 0,
     fenv_offset = 0,
+    fenv_travel = 0,
   }
 end
 
@@ -146,7 +147,13 @@ end
 -- -------------------------------------------------------------------------
 -- ui - pages
 
-local page_list = {'main', 'amp', 'filter', 'rot_mod', 'rot_mod_sliced'}
+local page_list = {
+  'main',
+  'amp',
+  'filter',
+  -- 'rot_mod',
+  -- 'rot_mod_sliced',
+}
 local pages = UI.Pages.new(1, #page_list)
 
 local env_graph
@@ -333,7 +340,8 @@ function init()
                                 util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, DEFAULT_R),
                                 1,-4
   )
-  env_graph:set_position_and_size(8, 22, 49, 36)
+  env_graph:set_position_and_size( ENV_GRAPH_X, 64 - ENV_GRAPH_H - GRAPH_BTM_M,
+                                   ENV_GRAPH_W, ENV_GRAPH_H )
   env_graph:set_show_x_axis(true)
 
   fenv_graph = EnvGraph.new_adsr(0, 1, 0, 1,
@@ -342,7 +350,8 @@ function init()
                                  util.linlin(ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, 0, 1, DEFAULT_S),
                                  util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, DEFAULT_R),
                                  1, -4)
-  fenv_graph:set_position_and_size(8, 22, 49, 36)
+  fenv_graph:set_position_and_size( ENV_GRAPH_X, 64 - ENV_GRAPH_H - GRAPH_BTM_M,
+                                    ENV_GRAPH_W, ENV_GRAPH_H )
   fenv_graph:set_show_x_axis(true)
 
   f_graph = FilterGraph.new(ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval, -60, 32.5,
@@ -350,14 +359,16 @@ function init()
                             12,
                             2000,
                             0)
-  f_graph:set_position_and_size(64+8, 22, 49, 36)
+  f_graph:set_position_and_size( 8, 64 - F_GRAPH_H - GRAPH_BTM_M,
+                                 49, F_GRAPH_H )
 
   f_instant_graph = FilterGraph.new(ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval, -60, 32.5,
                                     "lowpass",
                                     12,
                                     2000,
                                     0)
-  f_instant_graph:set_position_and_size(64+8, 22, 49, 36)
+  f_instant_graph:set_position_and_size( 8, 64 - F_GRAPH_H - GRAPH_BTM_M,
+                                         49, F_GRAPH_H )
 
 
   -- --------------------------------
@@ -968,17 +979,22 @@ end
 -- display recalculations
 
 function update_voice_fenv(voice_id)
+  local ad_t = params:get("filter_attack") + params:get("filter_decay")
+
   if voices[voice_id].active then
     if voices[voice_id].t_since_note_on <= params:get("filter_attack") then
       voices[voice_id].fenv = util.linlin(0, params:get("filter_attack"), 0, 1, voices[voice_id].t_since_note_on)
+      voices[voice_id].fenv_travel = voices[voice_id].t_since_note_on
     else
       voices[voice_id].fenv = util.linlin(0, params:get("filter_decay"), 1, params:get("filter_sustain"), voices[voice_id].t_since_note_on - params:get("filter_attack"))
+      voices[voice_id].fenv_travel = math.min(voices[voice_id].t_since_note_on, ad_t)
     end
   else
     voices[voice_id].fenv = util.linlin(0, params:get("filter_release"), voices[voice_id].fenv, 0, voices[voice_id].t_since_note_off)
+    voices[voice_id].fenv_travel = math.min(ad_t + voices[voice_id].t_since_note_off, ad_t + params:get("filter_release"))
   end
 
-  voices[voice_id].fenv_cutoff_offset = util.linlin(0, 1, 0, 15000, voices[voice_id].fenv * params:get("fenv_pct"))
+  voices[voice_id].fenv_cutoff_offset = util.linlin(0, 1, 0, 15000, voices[voice_id].fenv * params:get("fenv_pct") / 2)
 end
 
 function update_intant_cutoff(base_cutoff)
@@ -1286,27 +1302,9 @@ function amp_for_pole(n, mod, rot_angle, a, dir)
   end
 end
 
-function draw_page_main()
+function draw_voices()
   local screen_w, screen_h = screen_size()
 
-  local sync_ratio = params:get("sync_ratio") -- nb of sub-segments
-  local mod = params:get("mod")
-  local mod_sliced = mod * sync_ratio
-  local half_waves = mod
-  local half_wave_w = util.round(screen_w/(half_waves*2))
-  local segment_w = half_wave_w / sync_ratio
-  local abscissa = screen_h/2
-  local a = abscissa * 3/6
-
-  local freq = voices[STATE.curr_voice_id].hz
-
-  local sign = 1
-  local x_offset = screen_w/2
-
-  local p_pargin = 1
-  local p_radius = 10
-
-  -- poles - main osc voices
   for i=1,params:get("voice_count") do
     -- params:get("binaurality")
     draw_poles((p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5), p_radius+p_pargin, p_radius, voices[i].hz, voices[i].rot_angle, voices[i].active)
@@ -1328,10 +1326,49 @@ function draw_page_main()
       screen.fill()
     end
   end
+end
+
+function draw_page_rot_mod()
+  local screen_w, screen_h = screen_size()
+
+  draw_mod_poles(screen_w-(p_radius+p_pargin)*(2 + 0.3), p_radius+p_pargin, p_radius, params:get("mod"), params:get("npolar_rot_amount"), rot_angle, params:get("npolar_rot_freq"))
+end
+
+function draw_page_rot_mod_sliced()
+  local screen_w, screen_h = screen_size()
+
+  draw_mod_poles(screen_w-(p_radius+p_pargin), p_radius+p_pargin, p_radius, params:get("sync_ratio"), params:get("npolar_rot_amount_sliced"), rot_angle_sliced, params:get("npolar_rot_freq_sliced"))
+end
+
+function draw_modulators()
+  local screen_w, screen_h = screen_size()
+
+  draw_page_rot_mod()
+  draw_page_rot_mod_sliced()
+end
+
+function draw_page_main()
+  local screen_w, screen_h = screen_size()
+
+  local sync_ratio = params:get("sync_ratio") -- nb of sub-segments
+  local mod = params:get("mod")
+  local mod_sliced = mod * sync_ratio
+  local half_waves = mod
+  local half_wave_w = util.round(screen_w/(half_waves*2))
+  local segment_w = half_wave_w / sync_ratio
+  local abscissa = screen_h/2
+  local a = abscissa * 3/6
+
+  local freq = voices[STATE.curr_voice_id].hz
+
+  local sign = 1
+  local x_offset = screen_w/2
+
+  -- poles - main osc voices
+  draw_voices()
 
   -- poles - mod osc
-  draw_mod_poles(screen_w-(p_radius+p_pargin)*(2 + 0.3), p_radius+p_pargin, p_radius, params:get("mod"), params:get("npolar_rot_amount"), rot_angle, params:get("npolar_rot_freq"))
-  draw_mod_poles(screen_w-(p_radius+p_pargin), p_radius+p_pargin, p_radius, params:get("sync_ratio"), params:get("npolar_rot_amount_sliced"), rot_angle_sliced, params:get("npolar_rot_freq_sliced"))
+  draw_modulators()
 
   screen.aa(0)
   draw_scope_grid(screen_w, screen_h)
@@ -1404,25 +1441,52 @@ function draw_page_main()
   screen.text(msg)
 end
 
-function draw_page_rot_mod()
-  local screen_w, screen_h = screen_size()
+function draw_fenv()
+  screen.aa(0)
 
-  local p_pargin = 1
-  local p_radius = 10
+  local ad_t  = params:get("filter_attack") + params:get("filter_decay")
+  local adr_t = ad_t + params:get("filter_release")
 
-  draw_mod_poles(screen_w-(p_radius+p_pargin)*(2 + 0.3), p_radius+p_pargin, p_radius, params:get("mod"), params:get("npolar_rot_amount"), rot_angle, params:get("npolar_rot_freq"))
+  local a_w = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval,
+                          0, ENVGRAPH_T_MAX,
+                          params:get("filter_attack"))
+  local d_w = util.explin(ENV_DECAY.minval,  ENV_DECAY.maxval,
+                          0, ENVGRAPH_T_MAX,
+                          params:get("filter_decay"))
+  local r_w = util.explin(ENV_RELEASE.minval,  ENV_RELEASE.maxval,
+                          0, ENVGRAPH_T_MAX,
+                          params:get("filter_release"))
+
+  for voice_id=1,NB_VOICES do
+    local y = 64 - ENV_GRAPH_H - 10 - voice_id
+
+    local fenv_travel = voices[voice_id].fenv_travel
+    if fenv_travel < (ad_t - 0.1) then
+      local x = util.linlin(0, ad_t,
+                            0, (a_w + d_w) * ENV_GRAPH_W,
+                            fenv_travel)
+      screen.pixel(ENV_GRAPH_X + x, y)
+      screen.stroke()
+    elseif math.abs(fenv_travel - ad_t) <= 0.1 then
+      local x1 = (a_w + d_w) * ENV_GRAPH_W
+      local x2 = ENV_GRAPH_W - r_w * ENV_GRAPH_W
+      screen.move(ENV_GRAPH_X + x1, y)
+      screen.line(ENV_GRAPH_X + x2, y)
+      screen.stroke()
+    elseif fenv_travel < adr_t then
+      local x = util.linlin(0, adr_t,
+                            ENV_GRAPH_W - r_w * ENV_GRAPH_W, ENV_GRAPH_W,
+                            fenv_travel)
+      screen.pixel(ENV_GRAPH_X + x, y)
+      screen.stroke()
+      -- TODO
+    end
+  end
+
+  screen.aa(1)
 end
 
-function draw_page_rot_mod_sliced()
-  local screen_w, screen_h = screen_size()
-
-  local p_pargin = 1
-  local p_radius = 10
-
-  draw_mod_poles(screen_w-(p_radius+p_pargin), p_radius+p_pargin, p_radius, params:get("sync_ratio"), params:get("npolar_rot_amount_sliced"), rot_angle_sliced, params:get("npolar_rot_freq_sliced"))
-end
-
-function redraw()
+  function redraw()
   screen.clear()
 
   pages:redraw()
@@ -1431,9 +1495,13 @@ function redraw()
   if curr_page == 'main' then
     draw_page_main()
   elseif curr_page == 'amp' then
+    draw_voices()
     env_graph:redraw()
   elseif curr_page == 'filter' then
+    draw_voices()
     fenv_graph:redraw()
+    draw_fenv()
+
     f_graph:redraw()
     f_instant_graph:redraw()
   elseif curr_page == 'rot_mod' then
