@@ -992,7 +992,7 @@ function update_voice_aenv(voice_id)
     end
   else
     voices[voice_id].aenv = util.linlin(0, params:get("amp_release"), voices[voice_id].fenv, 0, voices[voice_id].t_since_note_off)
-    voices[voice_id].aenv_travel = math.min(ad_t + voices[voice_id].t_since_note_off, ad_t + params:get("amp_release"))
+    voices[voice_id].aenv_travel = ad_t + voices[voice_id].t_since_note_off
   end
 end
 
@@ -1009,7 +1009,7 @@ function update_voice_fenv(voice_id)
     end
   else
     voices[voice_id].fenv = util.linlin(0, params:get("filter_release"), voices[voice_id].fenv, 0, voices[voice_id].t_since_note_off)
-    voices[voice_id].fenv_travel = math.min(ad_t + voices[voice_id].t_since_note_off, ad_t + params:get("filter_release"))
+    voices[voice_id].fenv_travel = ad_t + voices[voice_id].t_since_note_off
   end
 
   voices[voice_id].fenv_cutoff_offset = util.linlin(0, 1, 0, 15000, voices[voice_id].fenv * params:get("fenv_pct") / 2)
