@@ -249,19 +249,19 @@ Engine_Quilt : CroneEngine {
 		});
 
 		this.addCommand("noteOn", "iif", { arg msg;
-			var noteId = msg[1];
+			var noteId = msg[1] - 1;
 			var freq = msg[2];
 			var vel = msg[3];
 			var voiceID = synth.noteOn(noteId, freq, vel);
 		});
 		this.addCommand("noteOnPaired", "iif", { arg msg;
-			var noteId = msg[1];
+			var noteId = msg[1] - 1;
 			var freq = msg[2];
 			var vel = msg[3];
 			var voiceID = synth.noteOnPaired(noteId, freq, vel);
 		});
 		this.addCommand("noteOff", "i", { arg msg;
-			var noteId = msg[1];
+			var noteId = msg[1] - 1;
 			synth.noteOff(noteId);
 		});
 
