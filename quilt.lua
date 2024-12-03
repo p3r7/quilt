@@ -452,13 +452,13 @@ function init()
                end
 
                -- panning
-               local pan_pct = v;
+               local pan_pct = v
                for i=1, NB_VOICES do
                  local v_pan_dir = (mod1(i, 2) == 1) and -1 or 1
                  local v_pan_pct = 1
 
                  if i >= math.floor(binaural_index) then
-                   v_pan_pct = 1 - util.linlin(binaural_index, NB_VOICES, 0, 1, i)
+                   v_pan_pct = 1 - util.linlin(binaural_index, NB_VOICES+1, 0, 1, i)
                  end
                  -- print("pan "..i.." -> "..(pan_pct * v_pan_dir * v_pan_pct))
                  voices[i].pan = pan_pct * v_pan_dir * v_pan_pct
