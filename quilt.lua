@@ -1509,7 +1509,8 @@ end
 
 function draw_amps()
   for i=1,NB_VOICES do
-    local x = (p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5)
+    local margin = p_pargin * 4
+    local x = (p_radius/4+margin) + (p_radius+margin) * ((i-1) * 0.5)
     local y = 64 - ENV_GRAPH_H + 7
     local radius = util.linlin(0, 1, 0, 5, voices[i].aenv)
     screen.move(x + radius + 2, y)
@@ -1524,7 +1525,8 @@ end
 
 function draw_pans()
   for i=1,NB_VOICES do
-    local x = (p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5)
+    local margin = p_pargin * 4
+    local x = (p_radius/4+margin) + (p_radius+margin) * ((i-1) * 0.5)
     local y = 64 - 10
     local theta = ((voices[i].pan + 1)/2 + 1) / 2
 
