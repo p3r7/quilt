@@ -1527,8 +1527,9 @@ function draw_pans()
   for i=1,NB_VOICES do
     local margin = p_pargin * 4
     local x = (p_radius/4+margin) + (p_radius+margin) * ((i-1) * 0.5)
-    local y = 64 - 10
-    local theta = ((voices[i].pan + 1)/2 + 1) / 2
+    local y = 64 - 7
+    local theta_offset = 1/2 + 1/8
+    local theta = theta_offset + (voices[i].pan + 1)/4 / 2
 
     -- NB: if not panned, disable `aa` to get e clearer vertical line
     -- somewhat dirty trick
