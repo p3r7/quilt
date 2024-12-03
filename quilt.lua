@@ -1348,10 +1348,13 @@ function draw_voices()
     end
   end
 
-  -- display nb meta voices
+  -- display nb active / meta voices
   screen.level(10)
   screen.move(screen_w/2 - 6, 6)
   screen.text(STATE.nb_meta_voices)
+  screen.move(screen_w/2 - 6, 21)
+  -- screen.text(STATE.nb_dual_meta_voices)
+  screen.text(voiceutils.nb_active_voices(STATE))
   screen.level(15)
 end
 
