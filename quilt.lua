@@ -396,6 +396,8 @@ function init()
   params:add{type = "number", id = "voice_count", name = "# voices",
              min = 1, max = 8, default = 8,
              action = engine.voice_count}
+  -- NB: for now, don't make it editable
+  params:hide("voice_count")
 
   params:add{type = "control", id = "binaurality", name = "binaurality",
              controlspec = pct_control_off, formatter = fmt_percent,
