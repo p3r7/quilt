@@ -1507,6 +1507,21 @@ function draw_aenv()
   screen.aa(1)
 end
 
+function draw_amps()
+  for i=1,NB_VOICES do
+    local x = (p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5)
+    local y = 64 - ENV_GRAPH_H + 7
+    local radius = util.linlin(0, 1, 0, 5, voices[i].aenv)
+    screen.move(x + radius + 2, y)
+    screen.circle(x, y, radius + 2)
+    if voices[i].active then
+      screen.fill()
+    else
+      screen.stroke()
+    end
+  end
+end
+
 function draw_fenv()
   screen.aa(0)
 
@@ -1564,6 +1579,7 @@ end
     draw_voices()
     env_graph:redraw()
     draw_aenv()
+    draw_amps()
   elseif curr_page == 'filter' then
     draw_voices()
     fenv_graph:redraw()
