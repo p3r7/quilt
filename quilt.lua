@@ -1459,13 +1459,13 @@ function draw_page_main()
   end
   screen.stroke()
 
-  -- metrics
-  screen.move(0, screen_h)
-  local msg = "f="..Formatters.format_freq_raw(params:get("freq")).." -> "..Formatters.format_freq_raw(STATE.effective_freq)
-  if PITCH_COMPENSATION_MOD then
-    msg = msg .. " -> " .. (STATE.effective_freq * STATE.effective_period/2)
-  end
-  screen.text(msg)
+  -- -- metrics
+  -- screen.move(0, screen_h)
+  -- local msg = "f="..Formatters.format_freq_raw(params:get("freq")).." -> "..Formatters.format_freq_raw(STATE.effective_freq)
+  -- if PITCH_COMPENSATION_MOD then
+  --   msg = msg .. " -> " .. (STATE.effective_freq * STATE.effective_period/2)
+  -- end
+  -- screen.text(msg)
 end
 
 function draw_aenv()
@@ -1531,11 +1531,20 @@ end
 
 function draw_pans()
   for i=1,NB_VOICES do
-    local margin = p_pargin * 4
+    local margin = p_pargin * 15
     local x = (p_radius/4+margin) + (p_radius+margin) * ((i-1) * 0.5)
-    local y = 64 - 7
+    local y = 64 - 4
     local theta_offset = 1/2 + 1/8
     local theta = theta_offset + (voices[i].pan + 1)/4 / 2
+
+    local radius = 7
+
+    screen.aa(1)
+    screen.level(5)
+    screen.move(util.round(x) + radius, y)
+    screen.stroke()
+    screen.arc(x, y, radius, 0 - math.pi*3/4 , 0 - math.pi/4)
+    screen.stroke()
 
     -- NB: if not panned, disable `aa` to get e clearer vertical line
     -- somewhat dirty trick
@@ -1544,11 +1553,11 @@ function draw_pans()
     else
       screen.aa(1)
     end
+    screen.level(15)
 
-    local radius = 15
     screen.move(util.round(x), y)
-    screen.line(x + radius / 2 * math.cos(math.rad(theta * 360)),
-                y + radius / 2 * math.sin(math.rad(theta * 360)))
+    screen.line(x + radius * math.cos(math.rad(theta * 360)),
+                y + radius * math.sin(math.rad(theta * 360)))
     screen.stroke()
   end
 
