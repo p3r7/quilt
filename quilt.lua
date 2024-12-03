@@ -1347,6 +1347,12 @@ function draw_voices()
       screen.fill()
     end
   end
+
+  -- display nb meta voices
+  screen.level(10)
+  screen.move(screen_w/2 - 6, 6)
+  screen.text(STATE.nb_meta_voices)
+  screen.level(15)
 end
 
 function draw_page_rot_mod()
