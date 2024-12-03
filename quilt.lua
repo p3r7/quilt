@@ -1522,6 +1522,31 @@ function draw_amps()
   end
 end
 
+function draw_pans()
+  for i=1,NB_VOICES do
+    local x = (p_radius+p_pargin) + (p_radius+p_pargin) * ((i-1) * 0.5)
+    local y = 64 - 10
+    local theta = ((voices[i].pan + 1)/2 + 1) / 2
+
+    -- NB: if not panned, disable `aa` to get e clearer vertical line
+    -- somewhat dirty trick
+    if math.abs(theta - 0.75) < 0.01 then
+      screen.aa(0)
+    else
+      screen.aa(1)
+    end
+
+    local radius = 15
+    screen.move(util.round(x), y)
+    screen.line(x + radius / 2 * math.cos(math.rad(theta * 360)),
+                y + radius / 2 * math.sin(math.rad(theta * 360)))
+    screen.stroke()
+  end
+
+  screen.aa(1)
+end
+
+
 function draw_fenv()
   screen.aa(0)
 
@@ -1575,6 +1600,7 @@ end
   local curr_page = page_list[pages.index]
   if curr_page == 'main' then
     draw_page_main()
+    draw_pans()
   elseif curr_page == 'amp' then
     draw_voices()
     env_graph:redraw()
