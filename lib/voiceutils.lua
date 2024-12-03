@@ -63,6 +63,7 @@ function voiceutils.voice_on(STATE, voice_id, hz, vel, note_id, leader_id, dynam
   STATE.voices[voice_id].hz = hz -- TODO: use `waveutils.compensated_freq`
   STATE.voices[voice_id].vel = vel
   STATE.voices[voice_id].note_id = note_id
+
   if leader_id then
     STATE.voices[voice_id].is_leader = false
     STATE.voices[voice_id].paired_leader = leader_id
@@ -224,6 +225,7 @@ function voiceutils.nb_active_same_note(STATE, note_id)
 end
 
 -- REVIEW: maybe only pair odd/even voices (left/right pan)?
+-- TODO: mutualize w/ `voiceutils.get_next_free_voice`, which seem to be the one called case dynamically adding follower w/ knob...
 function voiceutils.get_free_follower(STATE, voice_id)
   local max_tries = NB_VOICES
   local paired_voice_id = mod1(voice_id+1, params:get("voice_count"))
