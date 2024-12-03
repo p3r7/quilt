@@ -9,7 +9,8 @@ Engine_Quilt : CroneEngine {
 		def = SynthDef(\Quilt, {
 			arg out = 0,
 			gate = 0,
-			pairing_gate = 0,
+			gate_pair_in = 0,
+			gate_pair_out = 0,
 			vel = 0.5,
 			freq = 200,
 			freq_sag = 0.1,
@@ -70,7 +71,7 @@ Engine_Quilt : CroneEngine {
 			// looked-up waveforms (by index)
 			var signal1, signal2, signal3, signal4;
 			// amp enveloppe
-			var env, pairingEnv, scaledEnv;
+			var env, pairingInEnv, pairingOutEnv, scaledEnv;
 			// filter enveloppe
 			var fenv, instantCutoff;
 			// processed waveform
@@ -137,12 +138,12 @@ Engine_Quilt : CroneEngine {
 			phased = mixed * phase2 * phaseSliced2;
 
 			env = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 0);
-			// NB: other enveloppe for when a voice is dynamically paired
-			// same props as `env` except the slow attack & release to smooth up when bringing the voices in/out
-			pairingEnv = EnvGen.kr(Env.adsr(0.7, decay, sustain, 0.7), pairing_gate, doneAction: 0);
-			scaledEnv = (1 - amp_offset) * (env + pairingEnv) + amp_offset;
+			// NB: enveloppes for when a voice is dynamically paired
+			pairingInEnv  = EnvGen.kr(Env.adsr(0.7, 0, sustain, 0), gate_pair_in, doneAction: 0);
+			pairingOutEnv = EnvGen.kr(Env.adsr(0, 0, sustain, 0.7), gate_pair_out, doneAction: 0);
+			scaledEnv = (1 - amp_offset) * (env + pairingInEnv + pairingOutEnv) + amp_offset;
 
-			fenv = EnvGen.kr(Env.adsr(fattack, fdecay, fsustain, frelease), gate, doneAction: 0) * fenv_a;
+			fenv = EnvGen.kr(Env.adsr(fattack, fdecay, fsustain, frelease), gate, doneAction: 0) * (fenv_a / 2);
 
 			instantCutoff = (cutoff2 + (fktrack * (freq2.cpsmidi).clip(21, 127).linexp(21, 127, 27.5, 12543.85)) + fenv.linlin(0, 1, 0, 15000)).clip(20, 20000);
 
@@ -299,19 +300,19 @@ PolyDef {
 		var voice = voices[voiceId];
 		currVoice = voice;
 		voice.set(\freq, freq, \vel, vel,
-			\gate, 1, \pairing_gate, 0);
+			\gate, 1, \pair_gate_in, 0);
 	}
 
 	noteOnPaired { |voiceId, freq, vel|
 		var voice = voices[voiceId];
 		currVoice = voice;
 		voice.set(\freq, freq, \vel, vel,
-			\gate, 0, \pairing_gate, 1);
+			\gate, 0, \gate_pair_in, 1);
 	}
 
 	noteOff { |voiceId, noteId|
 		var voice = voices[voiceId];
-		voice.set(\gate, 0, \pairing_gate, 0);
+		voice.set(\gate, 0, \gate_pair_in, 0, \gate_pair_out, 0);
 	}
 
 	setPolyphony { |nbVoices|
