@@ -687,7 +687,7 @@ function init()
   params:add{type = "control", id = "fktrack_neg_offset", name = "f kbd track -offset",
              controlspec = pct_control_off, formatter = fmt_percent,
              action = engine.fktrack_neg_offset_all}
-  params:set("fktrack_neg_offset", 1)
+  params:set("fktrack_neg_offset", 0.2)
 
   params:add{type = "control", id = "cutoff", name = "cutoff",
              controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
