@@ -137,9 +137,9 @@ Engine_Quilt : CroneEngine {
 			hzTrack = freq2.cpsmidi / 12;
 
 			sin = SinOsc.ar(freq2);
-			saw = Saw.ar(freq2);
-			triangle = LFTri.ar(freq2);
-			square = Pulse.ar(freq: freq2, width: 0.5);
+			saw = MoogFF.ar(in: Saw.ar(freq2), freq: 10000);
+			triangle = MoogFF.ar(in: LFTri.ar(freq2), freq: 10000);
+			square = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: 10000);
 
 			crossing = LFSaw.ar(freq2 * 2, iphase: syncPhase, mul: 0.5);
 			counter = PulseCount.ar(crossing) % mod;
@@ -164,6 +164,8 @@ Engine_Quilt : CroneEngine {
 			phaseSliced2 = if(mod % 2 == 0, { phaseSliced }, { (1.0 - phaseSliced) });
 
 			phased = mixed * phase2 * phaseSliced2;
+
+			phased =  MoogFF.ar(in: phased, freq: 10000);
 
 			env = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 0);
 			// NB: enveloppes for when a voice is dynamically paired
