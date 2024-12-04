@@ -234,7 +234,7 @@ end
 
 local function bleached_cc_filter(row, pot, v, precision)
   if row == 1 and pot == 1 then
-    params:set("fenv_pct", util.linlin(0, precision, 0, 1, v))
+    params:set("fenv_pct", util.linlin(0, precision, -1, 1, v))
   elseif row == 1 and pot == 2 then
     params:set("res", util.linlin(0, precision, 0, 4, v))
   elseif row == 1 and pot == 3 then
@@ -335,6 +335,7 @@ function init()
 
   local pct_control_on = controlspec.new(0, 1, "lin", 0, 1.0, "")
   local pct_control_off = controlspec.new(0, 1, "lin", 0, 0.0, "")
+  local pct_detune          = controlspec.new(0.0001, 1, "exp", 0, 0.0001, "")
   local pct_control_bipolar = controlspec.new(-1, 1, "lin", 0, 0.0, "")
   local phase_control = controlspec.new(0, 2 * math.pi, "lin", 0, 0.0, "")
   local vib_rate_control = controlspec.new(0, 30, "lin", 0, 10.0, "")
@@ -374,7 +375,7 @@ function init()
                             2000,
                             0)
   f_graph:set_position_and_size( 8, 64 - F_GRAPH_H - GRAPH_BTM_M,
-                                 49, F_GRAPH_H )
+                                 F_GRAPH_W, F_GRAPH_H )
 
   f_instant_graph = FilterGraph.new(ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval, -60, 32.5,
                                     "lowpass",
@@ -382,7 +383,7 @@ function init()
                                     2000,
                                     0)
   f_instant_graph:set_position_and_size( 8, 64 - F_GRAPH_H - GRAPH_BTM_M,
-                                         49, F_GRAPH_H )
+                                         F_GRAPH_W, F_GRAPH_H )
 
 
   -- --------------------------------
@@ -692,150 +693,150 @@ function init()
   params:add{type = "control", id = "cutoff", name = "cutoff",
              controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
              action = function(v)
-               engine.cutoff_all(v)
-               update_intant_cutoff(v)
-               if page_list[pages.index] == 'filter' then
-                 screen_dirty = true
-               end
-  end}
+                 engine.cutoff_all(v)
+                 update_intant_cutoff(v)
+                 if page_list[pages.index] == 'filter' then
+                   screen_dirty = true
+                 end
+    end}
 
-  params:add{type = "control", id = "cutoff_sag", name = "cutoff sag",
-             controlspec = pct_control_off, formatter = fmt_percent,
-             action = engine.cutoff_sag_all}
-  params:set("cutoff_sag", 0.1)
+    params:add{type = "control", id = "cutoff_sag", name = "cutoff sag",
+               controlspec = pct_control_off, formatter = fmt_percent,
+               action = engine.cutoff_sag_all}
+    params:set("cutoff_sag", 0.1)
 
-  local moog_res = controlspec.new(0, 4, "lin", 0, 0.0, "")
-  params:add{type = "control", id = "res", name = "res",
-             controlspec = moog_res,
-             action = function(v)
-               engine.resonance_all(v)
-               f_graph:edit(nil, nil, nil, v/moog_res.maxval)
-               f_instant_graph:edit(nil, nil, nil, v/moog_res.maxval)
-               if page_list[pages.index] == 'filter' then
-                 screen_dirty = true
-               end
-  end}
-
-
+    local moog_res = controlspec.new(0, 4, "lin", 0, 0.0, "")
+    params:add{type = "control", id = "res", name = "res",
+               controlspec = moog_res,
+               action = function(v)
+                 engine.resonance_all(v)
+                 f_graph:edit(nil, nil, nil, v/moog_res.maxval)
+                 f_instant_graph:edit(nil, nil, nil, v/moog_res.maxval)
+                 if page_list[pages.index] == 'filter' then
+                   screen_dirty = true
+                 end
+    end}
 
 
-  -- --------------------------------
-  params:add_separator("amp env", "amp env")
-
-  params:add{type = "control", id = "amp_offset", name = "Amp Offset",
-             controlspec = pct_control_off, formatter = format_percent,
-             action = engine.amp_offset_all}
-  params:add{type = "control", id = "amp_attack", name = "Amp Attack",
-             controlspec = ENV_ATTACK, formatter = Formatters.format_secs,
-             action = function(v)
-               engine.attack_all(v)
-               local nv = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, v)
-               env_graph:edit_adsr(nv, nil, nil, nil)
-               if page_list[pages.index] == 'amp' then
-                 screen_dirty = true
-               end
-  end}
-  params:add{type = "control", id = "amp_decay", name = "Amp Decay",
-             controlspec = ENV_DECAY, formatter = Formatters.format_secs,
-             action = function(v)
-               engine.decay_all(v)
-               local nv = util.explin(ENV_DECAY.minval, ENV_DECAY.maxval, 0, ENVGRAPH_T_MAX, v)
-               env_graph:edit_adsr(nil, nv, nil, nil)
-               if page_list[pages.index] == 'amp' then
-                 screen_dirty = true
-               end
-  end}
-  params:add{type = "control", id = "amp_sustain", name = "Amp Sustain",
-             controlspec = ENV_SUSTAIN,
-             action = function(v)
-               engine.sustain_all(v)
-               local nv = util.linlin(ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, 0, 1, v)
-               env_graph:edit_adsr(nil, nil, nv, nil)
-               if page_list[pages.index] == 'amp' then
-                 screen_dirty = true
-               end
-  end}
-  params:add{type = "control", id = "amp_release", name = "Amp Release",
-             controlspec = ENV_RELEASE, formatter = Formatters.format_secs,
-             action = function(v)
-               engine.release_all(v)
-               local nv = util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, v)
-               env_graph:edit_adsr(nil, nil, nil, nv)
-               if page_list[pages.index] == 'amp' then
-                 screen_dirty = true
-               end
-  end}
 
 
-  -- --------------------------------
-  params:add_separator("filter env", "filter env")
+    -- --------------------------------
+    params:add_separator("amp env", "amp env")
 
-  -- filter env
-  params:add{type = "control", id = "filter_attack", name = "Filter Attack",
-             controlspec = ENV_ATTACK, formatter = Formatters.format_secs,
-             action = function(v)
-               engine.fdecay_all(v)
-               local nv = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, v)
-               fenv_graph:edit_adsr(nv, nil, nil, nil)
-               if page_list[pages.index] == 'filter' then
-                 screen_dirty = true
-               end
-  end}
-  params:add{type = "control", id = "filter_decay", name = "Filter Decay",
-             controlspec = ENV_DECAY, formatter = Formatters.format_secs,
-             action = function(v)
-               engine.fdecay_all(v)
-               local nv = util.explin(ENV_DECAY.minval, ENV_DECAY.maxval, 0, ENVGRAPH_T_MAX, v)
-               fenv_graph:edit_adsr(nil, nv, nil, nil)
-               if page_list[pages.index] == 'filter' then
-                 screen_dirty = true
-               end
-  end}
-  params:add{type = "control", id = "filter_sustain", name = "Filter Sustain",
-             controlspec = ENV_SUSTAIN,
-             action = function(v)
-               engine.fsustain_all(v)
-               local nv = util.linlin(ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, 0, 1, v)
-               fenv_graph:edit_adsr(nil, nil, nv, nil)
-               if page_list[pages.index] == 'filter' then
-                 screen_dirty = true
-               end
-  end}
-  params:add{type = "control", id = "filter_release", name = "Filter Release",
-             controlspec = ENV_RELEASE, formatter = Formatters.format_secs,
-             action = function(v)
-               engine.frelease_all(v)
-               local nv = util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, v)
-               fenv_graph:edit_adsr(nil, nil, nil, nv)
-               if page_list[pages.index] == 'filter' then
-                 screen_dirty = true
-               end
-  end}
-  params:set("filter_attack", 1.0)
-  params:set("filter_release", 4.0)
-
-
-  -- --------------------------------
-  params:add_separator("vintage", "vintage")
-
-  local pct_sat_threshold = controlspec.new(0.1, 1, "lin", 0, 0.5, "")
-  params:add{type = "control", id = "sat_threshold", name = "sat/comp threshold",
-             controlspec = pct_sat_threshold,
-             action = engine.sat_threshold_all}
-
-  params:add{type = "control", id = "pitch_offness", name = "pitch offness",
-             controlspec = pct_control_off, formatter = fmt_percent,
-             action = engine.pitch_offness_pct_all}
-
-  params:add{type = "control", id = "cutoff_offness", name = "cutoff offness",
-             controlspec = pct_control_off, formatter = fmt_percent,
-             action = engine.cutoff_offness_pct_all}
+    params:add{type = "control", id = "amp_offset", name = "Amp Offset",
+               controlspec = pct_control_off, formatter = format_percent,
+               action = engine.amp_offset_all}
+    params:add{type = "control", id = "amp_attack", name = "Amp Attack",
+               controlspec = ENV_ATTACK, formatter = Formatters.format_secs,
+               action = function(v)
+                 engine.attack_all(v)
+                 local nv = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, v)
+                 env_graph:edit_adsr(nv, nil, nil, nil)
+                 if page_list[pages.index] == 'amp' then
+                   screen_dirty = true
+                 end
+    end}
+    params:add{type = "control", id = "amp_decay", name = "Amp Decay",
+               controlspec = ENV_DECAY, formatter = Formatters.format_secs,
+               action = function(v)
+                 engine.decay_all(v)
+                 local nv = util.explin(ENV_DECAY.minval, ENV_DECAY.maxval, 0, ENVGRAPH_T_MAX, v)
+                 env_graph:edit_adsr(nil, nv, nil, nil)
+                 if page_list[pages.index] == 'amp' then
+                   screen_dirty = true
+                 end
+    end}
+    params:add{type = "control", id = "amp_sustain", name = "Amp Sustain",
+               controlspec = ENV_SUSTAIN,
+               action = function(v)
+                 engine.sustain_all(v)
+                 local nv = util.linlin(ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, 0, 1, v)
+                 env_graph:edit_adsr(nil, nil, nv, nil)
+                 if page_list[pages.index] == 'amp' then
+                   screen_dirty = true
+                 end
+    end}
+    params:add{type = "control", id = "amp_release", name = "Amp Release",
+               controlspec = ENV_RELEASE, formatter = Formatters.format_secs,
+               action = function(v)
+                 engine.release_all(v)
+                 local nv = util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, v)
+                 env_graph:edit_adsr(nil, nil, nil, nv)
+                 if page_list[pages.index] == 'amp' then
+                   screen_dirty = true
+                 end
+    end}
 
 
-  -- --------------------------------
-  params:add_separator("internal_trimmers", "internal trimmers")
+    -- --------------------------------
+    params:add_separator("filter env", "filter env")
 
-  for i=1,NB_VOICES do
+    -- filter env
+    params:add{type = "control", id = "filter_attack", name = "Filter Attack",
+               controlspec = ENV_ATTACK, formatter = Formatters.format_secs,
+               action = function(v)
+                 engine.fdecay_all(v)
+                 local nv = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval, 0, ENVGRAPH_T_MAX, v)
+                 fenv_graph:edit_adsr(nv, nil, nil, nil)
+                 if page_list[pages.index] == 'filter' then
+                   screen_dirty = true
+                 end
+    end}
+    params:add{type = "control", id = "filter_decay", name = "Filter Decay",
+               controlspec = ENV_DECAY, formatter = Formatters.format_secs,
+               action = function(v)
+                 engine.fdecay_all(v)
+                 local nv = util.explin(ENV_DECAY.minval, ENV_DECAY.maxval, 0, ENVGRAPH_T_MAX, v)
+                 fenv_graph:edit_adsr(nil, nv, nil, nil)
+                 if page_list[pages.index] == 'filter' then
+                   screen_dirty = true
+                 end
+    end}
+    params:add{type = "control", id = "filter_sustain", name = "Filter Sustain",
+               controlspec = ENV_SUSTAIN,
+               action = function(v)
+                 engine.fsustain_all(v)
+                 local nv = util.linlin(ENV_SUSTAIN.minval, ENV_SUSTAIN.maxval, 0, 1, v)
+                 fenv_graph:edit_adsr(nil, nil, nv, nil)
+                 if page_list[pages.index] == 'filter' then
+                   screen_dirty = true
+                 end
+    end}
+    params:add{type = "control", id = "filter_release", name = "Filter Release",
+               controlspec = ENV_RELEASE, formatter = Formatters.format_secs,
+               action = function(v)
+                 engine.frelease_all(v)
+                 local nv = util.explin(ENV_RELEASE.minval, ENV_RELEASE.maxval, 0, ENVGRAPH_T_MAX, v)
+                 fenv_graph:edit_adsr(nil, nil, nil, nv)
+                 if page_list[pages.index] == 'filter' then
+                   screen_dirty = true
+                 end
+    end}
+    params:set("filter_attack", 1.0)
+    params:set("filter_release", 4.0)
+
+
+    -- --------------------------------
+    params:add_separator("vintage", "vintage")
+
+    local pct_sat_threshold = controlspec.new(0.1, 1, "lin", 0, 0.5, "")
+    params:add{type = "control", id = "sat_threshold", name = "sat/comp threshold",
+               controlspec = pct_sat_threshold,
+               action = engine.sat_threshold_all}
+
+    params:add{type = "control", id = "pitch_offness", name = "pitch offness",
+               controlspec = pct_detune, formatter = fmt_percent,
+               action = engine.pitch_offness_pct_all}
+
+    params:add{type = "control", id = "cutoff_offness", name = "cutoff offness",
+               controlspec = pct_control_off, formatter = fmt_percent,
+               action = engine.cutoff_offness_pct_all}
+
+
+    -- --------------------------------
+    params:add_separator("internal_trimmers", "internal trimmers")
+
+    for i=1,NB_VOICES do
     params:add_group("internal_trimmers_v"..i, "voice #"..i, 3)
 
     params:add{type = "control", id = "pitch_offness_max_"..i, name = "max pitch offness #"..i,
@@ -1052,10 +1053,6 @@ function update_voice_fenv(voice_id)
                                                voices[voice_id].t_since_note_off)
     voices[voice_id].fenv_travel = a + d + voices[voice_id].t_since_note_off
   end
-
-  voices[voice_id].fenv_cutoff_offset = util.linexp(0, 1,
-                                                    ControlSpec.FREQ.minval, 15000,
-                                                    voices[voice_id].fenv * params:get("fenv_pct"))
 end
 
 function update_intant_cutoff(base_cutoff)
@@ -1068,7 +1065,6 @@ function update_intant_cutoff(base_cutoff)
                                             voices[STATE.last_played_voice].note_num, params:get("fktrack"), params:get("fktrack_neg_offset"),
                                             voices[STATE.last_played_voice].fenv, params:get("fenv_pct"))
 
-    -- intant_cutoff = intant_cutoff + voices[STATE.last_played_voice].fenv_cutoff_offset
   end
   f_graph:edit(nil, nil, base_cutoff)
   f_instant_graph:edit(nil, nil, intant_cutoff)
@@ -1663,6 +1659,81 @@ function draw_fenv()
   screen.aa(1)
 end
 
+function draw_f_mods()
+
+  screen.aa(0)
+  screen.level(5)
+
+  local cutoff_x = util.explin(ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval,
+                               0, F_GRAPH_W,
+                               params:get("cutoff"))
+
+  local s = params:get("filter_sustain")
+
+  local y = 64 - F_GRAPH_H - GRAPH_BTM_M
+
+  screen.move(8 + cutoff_x, y)
+  screen.line(8 + cutoff_x, 64 - GRAPH_BTM_M)
+  screen.stroke()
+
+  local fenv_max_freq = util.linexp(0, 1,
+                                    ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval,
+                                    math.abs(params:get("fenv_pct")))
+  local fenv_max_x = util.explin(ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval,
+                                 0, F_GRAPH_W,
+                                 fenv_max_freq)
+
+  local fenv_sustain_freq = util.linexp(0, 1,
+                                        ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval,
+                                        s * math.abs(params:get("fenv_pct")))
+  local fenv_sustain_x = util.explin(ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval,
+                                     0, F_GRAPH_W,
+                                     fenv_sustain_freq)
+
+  local fenv_max_x_screen = 0
+  local fenv_sustain_x_screen = 0
+  if params:get("fenv_pct") >= 0 then
+    fenv_max_x_screen     = 8 + math.min(cutoff_x + fenv_max_x, F_GRAPH_W)
+    fenv_sustain_x_screen = 8 + math.min(cutoff_x + fenv_sustain_x, F_GRAPH_W)
+  else
+    fenv_max_x_screen     = 8 + cutoff_x - math.min(fenv_max_x, cutoff_x)
+    fenv_sustain_x_screen = 8 + cutoff_x - math.min(fenv_sustain_x, cutoff_x)
+  end
+  screen.move(8 + cutoff_x, y)
+  screen.line(fenv_max_x_screen, y)
+  screen.stroke()
+
+  screen.aa(1)
+  screen.circle(fenv_max_x_screen, y, 2)
+  screen.fill()
+  screen.circle(fenv_sustain_x_screen, y, 2)
+  screen.fill()
+
+  screen.aa(0)
+
+  y = y + 4
+
+  local kbd_track_freq = util.linexp(0, 1,
+                                     ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval,
+                                     math.abs(params:get("fktrack")))
+  local kbd_track_x = util.explin(ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval,
+                                  0, F_GRAPH_W,
+                                  kbd_track_freq)
+
+  if params:get("fktrack") >= 0 then
+    screen.move(8 + cutoff_x, y)
+    screen.line(8 + math.min(cutoff_x + kbd_track_x, F_GRAPH_W), y)
+  else
+    screen.move(8 + cutoff_x, y)
+    screen.line(8 + cutoff_x - math.min(kbd_track_x, cutoff_x), y)
+  end
+  screen.stroke()
+
+
+  screen.aa(1)
+
+end
+
 function redraw()
   screen.clear()
 
@@ -1683,6 +1754,7 @@ function redraw()
     draw_fenv()
     f_graph:redraw()
     f_instant_graph:redraw()
+    draw_f_mods()
   elseif curr_page == 'rot_mod' then
     draw_page_rot_mod()
   elseif curr_page == 'rot_mod_sliced' then

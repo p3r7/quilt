@@ -36,6 +36,7 @@ p_radius = 10
 -- ------------------------------------------------------------------------
 -- env / filter graphs
 
+F_GRAPH_W = 49
 F_GRAPH_H = 30
 ENV_GRAPH_H = 25
 ENV_GRAPH_X = 8 + 64
