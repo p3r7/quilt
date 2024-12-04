@@ -88,6 +88,7 @@ function voiceutils.voice_off(STATE, voice_id)
     return
   end
   STATE.voices[voice_id].active = false
+  STATE.voices[voice_id].aenv_at_noteoff = STATE.voices[voice_id].aenv
   STATE.voices[voice_id].vel = 0
   STATE.voices[voice_id].is_leader = false
   STATE.voices[voice_id].paired_leader = nil
@@ -233,7 +234,7 @@ function voiceutils.get_free_follower(STATE, voice_id)
   while STATE.voices[paired_voice_id].active do
     if try > params:get("voice_count") then
       paired_voice_id = nil
-      -- break
+      break
     end
     paired_voice_id = mod1(paired_voice_id+1, params:get("voice_count"))
     try = try + 1

@@ -136,6 +136,7 @@ for i=1,NB_VOICES do
     t_since_note_off  = ENV_RELEASE.maxval,
 
     aenv = 0,
+    aenv_at_noteoff = 0,
     aenv_offset = 0,
     aenv_travel = 0,
     fenv = 0,
@@ -993,7 +994,7 @@ function update_voice_aenv(voice_id)
       voices[voice_id].aenv_travel = math.min(voices[voice_id].t_since_note_on, ad_t)
     end
   else
-    voices[voice_id].aenv = util.linlin(0, params:get("amp_release"), voices[voice_id].fenv, 0, voices[voice_id].t_since_note_off)
+    voices[voice_id].aenv = util.linlin(ENV_RELEASE.minval, params:get("amp_release"), voices[voice_id].aenv_at_noteoff, 0, voices[voice_id].t_since_note_off)
     voices[voice_id].aenv_travel = ad_t + voices[voice_id].t_since_note_off
   end
 end
