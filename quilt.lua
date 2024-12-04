@@ -1525,7 +1525,7 @@ function draw_amps()
     local y = 64 - ENV_GRAPH_H + 7
     local radius = util.linlin(0, 1, 0, 5, voices[i].aenv)
 
-    if radius < 0.001 then
+    if radius < 0.01 then
       radius = 1
     end
 
