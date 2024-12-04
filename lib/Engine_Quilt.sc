@@ -185,15 +185,17 @@ Engine_Quilt : CroneEngine {
 
 			saturated = (ironed * (2 - sat_threshold)).tanh;
 
-			compressed = Compander.ar(
-				saturated, //
-				ironed, // ctr signal -> input, but pre-saturation
-				thresh: sat_threshold.clip(0.1, 1),
-				slopeBelow: 1,  // 1 means no comp pre-knee
-				slopeAbove: 0.5, // post-knee
-				clampTime: 0.01, // fast attack
-				relaxTime: 0.1 // fast release
-			);
+			// compressed = Compander.ar(
+			// 	saturated, //
+			// 	ironed, // ctr signal -> input, but pre-saturation
+			// 	thresh: sat_threshold.clip(0.1, 1),
+			// 	slopeBelow: 1,  // 1 means no comp pre-knee
+			// 	slopeAbove: 0.5, // post-knee
+			// 	clampTime: 0.01, // fast attack
+			// 	relaxTime: 0.1 // fast release
+			// );
+
+			compressed = saturated;
 
 			Out.ar(0, Pan2.ar(compressed, pan * (1 - (pan_lfo_amount * SinOsc.kr(pan_lfo_freq, pan_lfo_phase, 0.5, 0.5)))));
 		}).add;
