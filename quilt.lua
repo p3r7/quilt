@@ -143,7 +143,13 @@ for i=1,NB_VOICES do
     ar = 0,
     aenv_offset = 0,
     aenv_travel = 0,
+
     fenv = 0,
+    fenv_at_noteoff = 0,
+    fa = 0,
+    fd = 0,
+    fs = 0,
+    fr = 0,
     fenv_offset = 0,
     fenv_travel = 0,
   }
@@ -1014,22 +1020,34 @@ function update_voice_aenv(voice_id)
 end
 
 function update_voice_fenv(voice_id)
-  local ad_t = params:get("filter_attack") + params:get("filter_decay")
+  local a = STATE.voices[voice_id].fa
+  local d = STATE.voices[voice_id].fd
+  local s = STATE.voices[voice_id].fs
+  local r = STATE.voices[voice_id].fr
 
   if voices[voice_id].active then
-    if voices[voice_id].t_since_note_on <= params:get("filter_attack") then
-      voices[voice_id].fenv = util.linlin(0, params:get("filter_attack"), 0, 1, voices[voice_id].t_since_note_on)
+    if voices[voice_id].t_since_note_on <= a then
+      voices[voice_id].fenv        = util.explin(ENV_ATTACK.minval, a,
+                                                 0, 1,
+                                                 voices[voice_id].t_since_note_on)
       voices[voice_id].fenv_travel = voices[voice_id].t_since_note_on
     else
-      voices[voice_id].fenv = util.linlin(0, params:get("filter_decay"), 1, params:get("filter_sustain"), voices[voice_id].t_since_note_on - params:get("filter_attack"))
-      voices[voice_id].fenv_travel = math.min(voices[voice_id].t_since_note_on, ad_t)
+      voices[voice_id].fenv        = util.explin(ENV_DECAY.minval, d,
+                                                 1, s,
+                                                 voices[voice_id].t_since_note_on - a)
+      voices[voice_id].fenv_travel = math.min(voices[voice_id].t_since_note_on, a + d)
     end
   else
-    voices[voice_id].fenv = util.linlin(0, params:get("filter_release"), voices[voice_id].fenv, 0, voices[voice_id].t_since_note_off)
-    voices[voice_id].fenv_travel = ad_t + voices[voice_id].t_since_note_off
+    -- NB: should be an `explin` but `linlin` works better visually here
+    voices[voice_id].fenv        = util.linlin(ENV_RELEASE.minval, r,
+                                               voices[voice_id].fenv_at_noteoff, 0,
+                                               voices[voice_id].t_since_note_off)
+    voices[voice_id].fenv_travel = a + d + voices[voice_id].t_since_note_off
   end
 
-  voices[voice_id].fenv_cutoff_offset = util.linlin(0, 1, 0, 15000, voices[voice_id].fenv * params:get("fenv_pct") / 2)
+  voices[voice_id].fenv_cutoff_offset = util.linexp(0, 1,
+                                                    ControlSpec.FREQ.minval, 15000,
+                                                    voices[voice_id].fenv * params:get("fenv_pct"))
 end
 
 function update_intant_cutoff(base_cutoff)
