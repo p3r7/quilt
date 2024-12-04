@@ -1524,8 +1524,13 @@ function draw_amps()
     local x = (p_radius/4+margin) + (p_radius+margin) * ((i-1) * 0.5)
     local y = 64 - ENV_GRAPH_H + 7
     local radius = util.linlin(0, 1, 0, 5, voices[i].aenv)
-    screen.move(x + radius + 2, y)
-    screen.circle(x, y, radius + 2)
+
+    if radius < 0.001 then
+      radius = 1
+    end
+
+    screen.move(x + radius, y)
+    screen.circle(x, y, radius)
     if voices[i].active then
       screen.fill()
     else
