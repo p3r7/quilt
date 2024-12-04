@@ -38,6 +38,7 @@ local bleached = include("lib/bleached")
 
 voiceutils = include("lib/voiceutils")
 waveutils  = include("lib/waveutils")
+frequtil  = include("lib/frequtil")
 
 include("lib/core")
 include("lib/consts")
@@ -119,6 +120,7 @@ for i=1,NB_VOICES do
   voices[i] = {
     active = false,
 
+    note_num = 12,
     base_hz = 20,
     hz = 20,
 
@@ -675,11 +677,17 @@ function init()
   params:add{type = "control", id = "fenv_pct", name = "filter env %",
              controlspec = pct_control_off, formatter = fmt_percent,
              action = engine.fenv_a_all}
-  params:set("fenv_pct", 0.1)
+  params:set("fenv_pct", 0.2)
 
   params:add{type = "control", id = "fktrack", name = "filter kbd track",
-             controlspec = pct_control_bipolar, action = engine.fktrack_all}
+             controlspec = pct_control_bipolar, formatter = fmt_percent,
+             action = engine.fktrack_all}
   params:set("fktrack", 0.2)
+
+  params:add{type = "control", id = "fktrack_neg_offset", name = "f kbd track -offset",
+             controlspec = pct_control_off, formatter = fmt_percent,
+             action = engine.fktrack_neg_offset_all}
+  params:set("fktrack_neg_offset", 1)
 
   params:add{type = "control", id = "cutoff", name = "cutoff",
              controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
@@ -1056,7 +1064,11 @@ function update_intant_cutoff(base_cutoff)
   end
   local intant_cutoff = base_cutoff
   if STATE.last_played_voice then
-    intant_cutoff = intant_cutoff + voices[STATE.last_played_voice].fenv_cutoff_offset
+    intant_cutoff = frequtil.instant_cutoff(base_cutoff,
+                                            voices[STATE.last_played_voice].note_num, params:get("fktrack"), params:get("fktrack_neg_offset"),
+                                            voices[STATE.last_played_voice].fenv, params:get("fenv_pct"))
+
+    -- intant_cutoff = intant_cutoff + voices[STATE.last_played_voice].fenv_cutoff_offset
   end
   f_graph:edit(nil, nil, base_cutoff)
   f_instant_graph:edit(nil, nil, intant_cutoff)
@@ -1651,7 +1663,7 @@ function draw_fenv()
   screen.aa(1)
 end
 
-  function redraw()
+function redraw()
   screen.clear()
 
   pages:redraw()

@@ -6,6 +6,33 @@ Engine_Quilt : CroneEngine {
 		var server = Crone.server;
 		var def;
 
+		~hzToVolts = { |freq|
+			(freq / 20).log2;
+		};
+
+		~voltsToHz = { |volts|
+			20 * (2 ** volts);
+		};
+
+		~instantCutoff = { |baseCutoffHz, keyHz, keyTrackPct, keyTrackNegOffsetPct, eg, envelopePct|
+			var baseCutoffVolts = ~hzToVolts.(baseCutoffHz);
+
+			var keyVolts = ~hzToVolts.(keyHz);
+			var keyTrackNegOffsetVolts = keyTrackNegOffsetPct * 10;
+			var egVolts = eg * 10;
+
+			var keyModVolts = (keyVolts - keyTrackNegOffsetVolts) * keyTrackPct;
+			var egModVolts  = egVolts  * envelopePct;
+
+			var totalVolts = baseCutoffVolts + keyModVolts + egModVolts;
+
+			var instantCutoffHz = ~voltsToHz.(totalVolts);
+
+			instantCutoffHz = instantCutoffHz.clip(20, 20000);
+
+			instantCutoffHz;
+		};
+
 		def = SynthDef(\Quilt, {
 			arg out = 0,
 			gate = 0,
@@ -41,6 +68,7 @@ Engine_Quilt : CroneEngine {
 			// filter env
 			fenv_a = 1.0,
 			fktrack = 0.1,
+			fktrack_neg_offset = 0.0,
 			fattack = 0.1, fdecay = 0.1, fsustain = 0.7, frelease = 0.5,
 			// filter
 			cutoff = 1200,
@@ -143,9 +171,11 @@ Engine_Quilt : CroneEngine {
 			pairingOutEnv = EnvGen.kr(Env.adsr(0, 0, sustain, 0.7), gate_pair_out, doneAction: 0);
 			scaledEnv = (1 - amp_offset) * (env + pairingInEnv + pairingOutEnv) + amp_offset;
 
-			fenv = EnvGen.kr(Env.adsr(fattack, fdecay, fsustain, frelease), gate, doneAction: 0) * (fenv_a / 2);
+			// fenv = EnvGen.kr(Env.adsr(fattack, fdecay, fsustain, frelease), gate, doneAction: 0) * (fenv_a / 2);
+			fenv = EnvGen.kr(Env.adsr(fattack, fdecay, fsustain, frelease), gate, doneAction: 0);
 
-			instantCutoff = (cutoff2 + (fktrack * (freq2.cpsmidi).clip(21, 127).linexp(21, 127, 27.5, 12543.85)) + fenv.linlin(0, 1, 0, 15000)).clip(20, 20000);
+			// instantCutoff = (cutoff2 + (fktrack * (freq2.cpsmidi).clip(21, 127).linexp(21, 127, 27.5, 12543.85)) + fenv.linlin(0, 1, 0, 15000)).clip(20, 20000);
+			instantCutoff = ~instantCutoff.(cutoff2, freq2, fktrack, fktrack_neg_offset, fenv, fenv_a);
 
 			filtered = MoogFF.ar(in: phased,
 				freq: instantCutoff,
@@ -212,6 +242,7 @@ Engine_Quilt : CroneEngine {
 			// filter env
 			\fenv_a, 1.0,
 			\fktrack, 0.1,
+			\fktrack_neg_offset, 0.0,
 			\fattack, 0.1,
 			\fdecay, 0.1,
 			\fsustain, 0.7,

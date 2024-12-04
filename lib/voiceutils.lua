@@ -15,7 +15,6 @@ include("lib/consts")
 
 function voiceutils.note_on(STATE, note_num, vel)
   local note_id, voice_ids = voiceutils.allocate_voice(STATE, note_num)
-  local hz = MusicUtil.note_num_to_freq(note_num)
 
   print("------")
   print("alloc: ")
@@ -30,7 +29,7 @@ function voiceutils.note_on(STATE, note_num, vel)
     if i > 1 then
       leader_id = main_voice_id
     end
-    voiceutils.voice_on(STATE, voice_id, hz, vel, note_id, leader_id)
+    voiceutils.voice_on(STATE, voice_id, note_num, vel, note_id, leader_id)
   end
 
   voiceutils.recompute_next_voice(STATE)
@@ -56,8 +55,11 @@ end
 
 -- REVIEW: use stored note_id so that we can remove voice from STATE.note_id_voice_map when dimnishing binaurality!
 
-function voiceutils.voice_on(STATE, voice_id, hz, vel, note_id, leader_id, dynamic_pairing)
+function voiceutils.voice_on(STATE, voice_id, note_num, vel, note_id, leader_id, dynamic_pairing)
   local was_active = STATE.voices[voice_id].active
+
+  local hz = MusicUtil.note_num_to_freq(note_num)
+
   STATE.voices[voice_id].active = true
   STATE.voices[voice_id].aa = params:get("amp_attack")
   STATE.voices[voice_id].ad = params:get("amp_decay")
@@ -65,6 +67,7 @@ function voiceutils.voice_on(STATE, voice_id, hz, vel, note_id, leader_id, dynam
   STATE.voices[voice_id].fa = params:get("filter_attack")
   STATE.voices[voice_id].fd = params:get("filter_decay")
   STATE.voices[voice_id].fs = params:get("filter_sustain")
+  STATE.voices[voice_id].note_num = note_num
   STATE.voices[voice_id].base_hz = hz
   STATE.voices[voice_id].hz = hz -- TODO: use `waveutils.compensated_freq`
   STATE.voices[voice_id].vel = vel
@@ -340,10 +343,10 @@ end
 
 function voiceutils.pair_voices(STATE, leader_id, follower_id)
   if STATE.voices[leader_id].active and not STATE.voices[follower_id].active then
-    local hz = STATE.voices[leader_id].hz
+    local note_num = STATE.voices[leader_id].note_num
     local vel = STATE.voices[leader_id].vel
     local note_id = STATE.voices[leader_id].note_id
-    voiceutils.voice_on(STATE, follower_id, hz, vel, note_id, leader_id, true)
+    voiceutils.voice_on(STATE, follower_id, note_num, vel, note_id, leader_id, true)
     -- REVIEW: this might not be the best spot for this?
     STATE.note_id_voice_map[note_id] = {leader_id, follower_id}
   end
