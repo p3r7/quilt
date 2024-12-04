@@ -137,6 +137,10 @@ for i=1,NB_VOICES do
 
     aenv = 0,
     aenv_at_noteoff = 0,
+    aa = 0,
+    ad = 0,
+    as = 0,
+    ar = 0,
     aenv_offset = 0,
     aenv_travel = 0,
     fenv = 0,
@@ -983,20 +987,29 @@ end
 -- display recalculations
 
 function update_voice_aenv(voice_id)
-  local ad_t = params:get("amp_attack") + params:get("amp_decay")
+  local a = STATE.voices[voice_id].aa
+  local d = STATE.voices[voice_id].ad
+  local s = STATE.voices[voice_id].as
+  local r = STATE.voices[voice_id].ar
 
   if voices[voice_id].active then
-    if voices[voice_id].t_since_note_on <= params:get("amp_attack") then
-      voices[voice_id].aenv = util.explin(ENV_ATTACK.minval, params:get("amp_attack"), 0, 1, voices[voice_id].t_since_note_on)
+    if voices[voice_id].t_since_note_on <= a then
+      voices[voice_id].aenv        = util.explin(ENV_ATTACK.minval, a,
+                                                 0, 1,
+                                                 voices[voice_id].t_since_note_on)
       voices[voice_id].aenv_travel = voices[voice_id].t_since_note_on
     else
-      voices[voice_id].aenv = util.explin(ENV_DECAY.minval, params:get("amp_decay"), 1, params:get("amp_sustain"), voices[voice_id].t_since_note_on - params:get("amp_attack"))
-      voices[voice_id].aenv_travel = math.min(voices[voice_id].t_since_note_on, ad_t)
+      voices[voice_id].aenv        = util.explin(ENV_DECAY.minval, d,
+                                                 1, s,
+                                                 voices[voice_id].t_since_note_on - a)
+      voices[voice_id].aenv_travel = math.min(voices[voice_id].t_since_note_on, a + d)
     end
   else
     -- NB: should be an `explin` but `linlin` works better visually here
-    voices[voice_id].aenv = util.linlin(ENV_RELEASE.minval, params:get("amp_release"), voices[voice_id].aenv_at_noteoff, 0, voices[voice_id].t_since_note_off)
-    voices[voice_id].aenv_travel = ad_t + voices[voice_id].t_since_note_off
+    voices[voice_id].aenv        = util.linlin(ENV_RELEASE.minval, r,
+                                               voices[voice_id].aenv_at_noteoff, 0,
+                                               voices[voice_id].t_since_note_off)
+    voices[voice_id].aenv_travel = a + d + voices[voice_id].t_since_note_off
   end
 end
 

@@ -59,6 +59,9 @@ end
 function voiceutils.voice_on(STATE, voice_id, hz, vel, note_id, leader_id, dynamic_pairing)
   local was_active = STATE.voices[voice_id].active
   STATE.voices[voice_id].active = true
+  STATE.voices[voice_id].aa = params:get("amp_attack")
+  STATE.voices[voice_id].ad = params:get("amp_decay")
+  STATE.voices[voice_id].as = params:get("amp_sustain")
   STATE.voices[voice_id].base_hz = hz
   STATE.voices[voice_id].hz = hz -- TODO: use `waveutils.compensated_freq`
   STATE.voices[voice_id].vel = vel
@@ -89,6 +92,7 @@ function voiceutils.voice_off(STATE, voice_id)
   end
   STATE.voices[voice_id].active = false
   STATE.voices[voice_id].aenv_at_noteoff = STATE.voices[voice_id].aenv
+  STATE.voices[voice_id].ar = params:get("amp_release")
   STATE.voices[voice_id].vel = 0
   STATE.voices[voice_id].is_leader = false
   STATE.voices[voice_id].paired_leader = nil
