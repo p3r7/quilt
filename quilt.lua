@@ -987,13 +987,14 @@ function update_voice_aenv(voice_id)
 
   if voices[voice_id].active then
     if voices[voice_id].t_since_note_on <= params:get("amp_attack") then
-      voices[voice_id].aenv = util.linlin(0, params:get("amp_attack"), 0, 1, voices[voice_id].t_since_note_on)
+      voices[voice_id].aenv = util.explin(ENV_ATTACK.minval, params:get("amp_attack"), 0, 1, voices[voice_id].t_since_note_on)
       voices[voice_id].aenv_travel = voices[voice_id].t_since_note_on
     else
-      voices[voice_id].aenv = util.linlin(0, params:get("amp_decay"), 1, params:get("amp_sustain"), voices[voice_id].t_since_note_on - params:get("amp_attack"))
+      voices[voice_id].aenv = util.explin(ENV_DECAY.minval, params:get("amp_decay"), 1, params:get("amp_sustain"), voices[voice_id].t_since_note_on - params:get("amp_attack"))
       voices[voice_id].aenv_travel = math.min(voices[voice_id].t_since_note_on, ad_t)
     end
   else
+    -- NB: should be an `explin` but `linlin` works better visually here
     voices[voice_id].aenv = util.linlin(ENV_RELEASE.minval, params:get("amp_release"), voices[voice_id].aenv_at_noteoff, 0, voices[voice_id].t_since_note_off)
     voices[voice_id].aenv_travel = ad_t + voices[voice_id].t_since_note_off
   end
