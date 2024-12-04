@@ -675,7 +675,7 @@ function init()
   params:add_separator("filter", "filter")
 
   params:add{type = "control", id = "fenv_pct", name = "filter env %",
-             controlspec = pct_control_off, formatter = fmt_percent,
+             controlspec = pct_control_bipolar, formatter = fmt_percent,
              action = engine.fenv_a_all}
   params:set("fenv_pct", 0.2)
 
