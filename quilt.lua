@@ -204,8 +204,7 @@ local function bleached_cc_main(row, pot, v, precision)
     -- params:set("cutoff_sag", util.linlin(0, precision, 0, 1, v))
 
     params:set("pitch_offness", util.linlin(0, precision, 0, 1, v))
-    -- params:set("pitch_offness", util.linexp(0, precision, 0+1, 1+1, v) - 1)
-    -- params:set("cutoff_offness", util.linlin(0, precision, 0, 1, v))
+    params:set("cutoff_offness", util.linlin(0, precision, 0, 1, v))
     params:set("sat_threshold", util.linlin(0, precision, 1, 0.1, v))
   elseif row == 1 and pot == 3 then
     params:set("cutoff", util.linexp(0, precision, ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval, v))
@@ -1061,7 +1060,7 @@ function update_intant_cutoff(base_cutoff)
   end
   local intant_cutoff = base_cutoff
   if STATE.last_played_voice then
-    intant_cutoff = frequtil.instant_cutoff(base_cutoff,
+    intant_cutoff = frequtil.instant_cutoff(base_cutoff, params:get("cutoff_offness") * params:get("cutoff_offness_max_"..STATE.last_played_voice),
                                             voices[STATE.last_played_voice].note_num, params:get("fktrack"), params:get("fktrack_neg_offset"),
                                             voices[STATE.last_played_voice].fenv, params:get("fenv_pct"))
 

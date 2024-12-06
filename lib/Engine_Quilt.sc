@@ -14,8 +14,9 @@ Engine_Quilt : CroneEngine {
 			20 * (2 ** volts);
 		};
 
-		~instantCutoff = { |baseCutoffHz, keyHz, keyTrackPct, keyTrackNegOffsetPct, eg, envelopePct|
+		~instantCutoff = { |baseCutoffHz, cutoffOffnessPct, keyHz, keyTrackPct, keyTrackNegOffsetPct, eg, envelopePct|
 			var baseCutoffVolts = ~hzToVolts.(baseCutoffHz);
+			var cutoffOffnessVolts = cutoffOffnessPct * 10 / 4; // NB: max offness by 2.5 volt
 
 			var keyVolts = ~hzToVolts.(keyHz);
 			var keyTrackNegOffsetVolts = keyTrackNegOffsetPct * 10;
@@ -24,7 +25,7 @@ Engine_Quilt : CroneEngine {
 			var keyModVolts = (keyVolts - keyTrackNegOffsetVolts) * keyTrackPct;
 			var egModVolts  = egVolts  * envelopePct;
 
-			var totalVolts = baseCutoffVolts + keyModVolts + egModVolts;
+			var totalVolts = baseCutoffVolts + cutoffOffnessVolts + keyModVolts + egModVolts;
 
 			var instantCutoffHz = ~voltsToHz.(totalVolts);
 
@@ -130,7 +131,7 @@ Engine_Quilt : CroneEngine {
 			// npolarRotFreqSliced2 = npolarRotFreqSliced + npolarRotFreqSlicedSagLfo;
 
 			freq2 = freq + vibrato + ((semitoneDiff) * pitch_offness_max * pitch_offness_pct);
-			cutoff2 = cutoff + (7000 * cutoff_offness_max * cutoff_offness_pct);
+			// cutoff2 = cutoff + (7000 * cutoff_offness_max * cutoff_offness_pct);
 			npolarRotFreq2 = npolarRotFreq;
 			npolarRotFreqSliced2 = npolarRotFreqSliced;
 
@@ -177,7 +178,9 @@ Engine_Quilt : CroneEngine {
 			fenv = EnvGen.kr(Env.adsr(fattack, fdecay, fsustain, frelease), gate, doneAction: 0);
 
 			// instantCutoff = (cutoff2 + (fktrack * (freq2.cpsmidi).clip(21, 127).linexp(21, 127, 27.5, 12543.85)) + fenv.linlin(0, 1, 0, 15000)).clip(20, 20000);
-			instantCutoff = ~instantCutoff.(cutoff2, freq2, fktrack, fktrack_neg_offset, fenv, fenv_a);
+			instantCutoff = ~instantCutoff.(cutoff, cutoff_offness_max * cutoff_offness_pct,
+				freq2, fktrack, fktrack_neg_offset,
+				fenv, fenv_a);
 
 			filtered = MoogFF.ar(in: phased,
 				freq: instantCutoff,
