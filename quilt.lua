@@ -119,6 +119,7 @@ STATE = {
 for i=1,NB_VOICES do
   voices[i] = {
     active = false,
+    completely_inactive = true,
 
     note_num = 12,
     base_hz = 20,
@@ -1024,6 +1025,7 @@ function update_voice_aenv(voice_id)
                                                voices[voice_id].aenv_at_noteoff, 0,
                                                voices[voice_id].t_since_note_off)
     voices[voice_id].aenv_travel = a + d + voices[voice_id].t_since_note_off
+    voices[voice_id].completely_inactive = ( voices[voice_id].aenv < 0.05 )
   end
 end
 
@@ -1561,10 +1563,10 @@ function draw_amps()
     local margin = p_pargin * 4
     local x = (p_radius/4+margin) + (p_radius+margin) * ((i-1) * 0.5)
     local y = 64 - ENV_GRAPH_H + 7
-    local radius = util.linlin(0, 1, 0, 5, voices[i].aenv)
 
-    if radius < 0.01 then
-      radius = 1
+    local radius = 1
+    if voices[i].active or not voices[i].completely_inactive then
+      radius = util.linlin(0, 1, 0, 5, voices[i].aenv)
     end
 
     screen.move(x + radius, y)
@@ -1718,6 +1720,9 @@ function draw_f_mods()
   local kbd_track_x = util.explin(ControlSpec.FREQ.minval, ControlSpec.FREQ.maxval,
                                   0, F_GRAPH_W,
                                   kbd_track_freq)
+
+  -- TODO: plot negative offset
+  -- params:get("fktrack_neg_offset")
 
   if params:get("fktrack") >= 0 then
     screen.move(8 + cutoff_x, y)
