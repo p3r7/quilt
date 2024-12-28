@@ -1,21 +1,43 @@
 
+// issues:
+// - TZO (ring mod) not working as expected
+// - `counter*` waves are not 0-aligned!
+// - phase shift impl (sync w/ wip code on norns)
 
 (
 s.waitForBoot {
 
-var win, ly, freqSlider, ampSlider, freqLabel, ampLabel,
+var win, scope, freqSlider, ampSlider, freqLabel, ampLabel,
   mod1Label, mod1Slider, mod1AmtLabel, mod1AmtSlider, mod1FreqLabel, mod1FreqSlider,
-  mod2Label, mod2Slider, mod2AmtLabel, mod2AmtSlider, mod2FreqLabel, mod2FreqSlider;
-var lh = 30;
+  mod2Label, mod2Slider, mod2AmtLabel, mod2AmtSlider, mod2FreqLabel, mod2FreqSlider,
+  i1Label, i1Slider, i2Label, i2Slider, i3Label, i3Slider, i4Label, i4Slider;
+var ly, lh = 30;
 var def;
+
+var d_amp_offset = 0.5;
+var d_freq = 200;
+var d_mod1 = 2;
+var d_mod2 = 1;
+var d_mod1a = 0;
+var d_mod2a = 0;
+var d_mod1f = 20;
+var d_mod2f = 20;
+
+var g_freq = d_freq;
+var g_mod1 = d_mod1;
 
 // ------------------------------------
 // helper fns
 
-//~updateScopeRange = { |freq|
-//    var period = 1 / freq;
-//    ScopeView.scope.range_(0, 2 * period); // NB: we display 2 periods
-//};
+~updateScopeRange = { |freq, periods|
+	var cycles = periods * (s.sampleRate / freq).asInteger;
+
+	Stethoscope.ugenScopes.do({
+		arg scope, i;
+		scope.cycle = cycles;
+		// scope.bufsize = 4096; // NB: can't be set dynamically
+	});
+};
 
 ~hzToVolts = { |freq|
 	(freq / 20).log2;
@@ -151,7 +173,7 @@ var def;
 
 			hzTrack = freq2.cpsmidi / 12;
 
-			sin = SinOsc.ar(freq2);
+			sin = SinOsc.ar(freq2) * 0.5; // FIX: needed to half amp for sine
 			saw = MoogFF.ar(in: Saw.ar(freq2), freq: 10000);
 			triangle = MoogFF.ar(in: LFTri.ar(freq2), freq: 10000);
 			square = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: 10000);
@@ -159,7 +181,7 @@ var def;
 			crossing = LFSaw.ar(freq2 * 2, iphase: syncPhase, mul: 0.5);
 			counter = PulseCount.ar(crossing) % mod;
 
-			crossingSliced = LFSaw.ar(freq2 * syncRatio * 2, iphase: syncPhase, mul: 0.5);
+			crossingSliced = LFSaw.ar(freq2 * syncRatio * 2, iphase: 1+syncPhase, mul: 0.5);
 			counterSliced = PulseCount.ar(crossingSliced) % mod;
 
 			modphase = if(mod % 2 == 0, { mod - 1 }, { mod });
@@ -216,12 +238,13 @@ var def;
 
 			compressed = saturated;
 
-	[
+		scope = ([
 			phased, mixed,
 			crossing, counter/mod,
 			crossingSliced, counterSliced/mod,
-			signal1, signal2, signal3, signal4
-		].scope(name: "QuiltScope", zoom: 2.0);
+			signal1, signal2, signal3,
+			signal4
+		].scope(name: "QuiltScope", bufsize: 4096*2));
 
 			Out.ar(0, Pan2.ar(compressed, pan * (1 - (pan_lfo_amount * SinOsc.kr(pan_lfo_freq, pan_lfo_phase, 0.5, 0.5)))));
 		}).add;
@@ -230,22 +253,30 @@ var def;
 def.send(s);
 s.sync;
 
-	// ------------------------------------
-
 ~synth = Synth.new(\Quilt);
 
-win = Window("Synth Controls", Rect(100, 100, 300, 300)).front;
+win = Window("Synth Controls", Rect(100, 100, 350, 450)).front;
+win.onClose = {
+	Stethoscope.ugenScopes.do({ arg scope, i; scope.quit() });
+    ~synth.free;
+};
+
+
+// ------------------------------------
+// controls - main
 
 ly = 10;
 
-freqLabel = StaticText(win, Rect(10, ly, 50, 20));
-freqLabel.string = "f";
+StaticText(win, Rect(10, ly, 50, 20)).string_("f");
+freqLabel = StaticText(win, Rect(270, ly, 50, 20)).string_(d_freq);
 freqSlider = Slider(win, Rect(70, ly, 200, 20));
 freqSlider.action = { |slider|
-	var freq = slider.value.linexp(0, 1, 20, 2000);
-	~synth.set(\freq, freq);
-	//~updateScopeRange.value(freq);
+	g_freq = slider.value.linexp(0, 1, 20, 2000);
+	~synth.set(\freq, g_freq);
+	~updateScopeRange.(g_freq, g_mod1);
+	freqLabel.string = g_freq;
 };
+freqSlider.value = d_freq.explin(20, 2000, 0, 1);
 ly = ly + lh;
 
 ampLabel = StaticText(win, Rect(10, ly, 50, 20));
@@ -254,14 +285,23 @@ ampSlider = Slider(win, Rect(70, ly, 200, 20));
 ampSlider.action = { |slider|
     ~synth.set(\amp_offset, slider.value);
 };
+ampSlider.value = d_amp_offset;
 ly = ly + lh;
 
-mod1Label = StaticText(win, Rect(10, ly, 50, 20));
-mod1Label.string = "m1";
+
+// ------------------------------------
+// controls - modulators
+
+//mod1Label = StaticText(win, Rect(10, ly, 50, 20));
+//mod1Label.string = "m1";
+StaticText(win, Rect(10, ly, 50, 20)).string_("m1");
 mod1Slider = Slider(win, Rect(70, ly, 200, 20));
 mod1Slider.action = { |slider|
-    ~synth.set(\mod, slider.value.linexp(0, 1, 2, 15));
+	g_mod1 = slider.value.linlin(0, 1, 2, 15).round;
+    ~synth.set(\mod, g_mod1);
+	~updateScopeRange.(g_freq, g_mod1);
 };
+mod1Slider.value = d_mod1.linlin(2, 15, 0, 1);
 ly = ly + lh;
 
 mod1AmtLabel = StaticText(win, Rect(10, ly, 50, 20));
@@ -270,6 +310,7 @@ mod1AmtSlider = Slider(win, Rect(70, ly, 200, 20));
 mod1AmtSlider.action = { |slider|
     ~synth.set(\npolarProj, slider.value);
 };
+mod1AmtSlider.value = d_mod1a;
 ly = ly + lh;
 
 mod1FreqLabel = StaticText(win, Rect(10, ly, 50, 20));
@@ -278,14 +319,16 @@ mod1FreqSlider = Slider(win, Rect(70, ly, 200, 20));
 mod1FreqSlider.action = { |slider|
     ~synth.set(\npolarRotFreq, slider.value.linexp(0, 1, 20, 2000));
 };
+mod1FreqSlider.value = d_mod1f.explin(20, 2000, 0, 1);
 ly = ly + lh;
 
 mod2Label = StaticText(win, Rect(10, ly, 50, 20));
 mod2Label.string = "m2";
 mod2Slider = Slider(win, Rect(70, ly, 200, 20));
 mod2Slider.action = { |slider|
-    ~synth.set(\syncRatio, slider.value.linexp(0, 1, 1, 8));
+    ~synth.set(\syncRatio, slider.value.linlin(0, 1, 1, 8).round);
 };
+mod2Slider.value = d_mod2.linlin(1, 8, 0, 1);
 ly = ly + lh;
 
 mod2AmtLabel = StaticText(win, Rect(10, ly, 50, 20));
@@ -294,6 +337,7 @@ mod2AmtSlider = Slider(win, Rect(70, ly, 200, 20));
 mod2AmtSlider.action = { |slider|
     ~synth.set(\npolarProjSliced, slider.value);
 };
+mod2AmtSlider.value = d_mod2a;
 ly = ly + lh;
 
 mod2FreqLabel = StaticText(win, Rect(10, ly, 50, 20));
@@ -302,11 +346,44 @@ mod2FreqSlider = Slider(win, Rect(70, ly, 200, 20));
 mod2FreqSlider.action = { |slider|
     ~synth.set(\npolarRotFreqSliced, slider.value.linexp(0, 1, 20, 2000));
 };
+mod2FreqSlider.value = d_mod2f.explin(20, 2000, 0, 1);
 ly = ly + lh;
 
-win.onClose = {
-    ~synth.free;
+
+// ------------------------------------
+// controls - indices
+
+i1Label = StaticText(win, Rect(10, ly, 50, 20));
+i1Label.string = "i1";
+i1Slider = Slider(win, Rect(70, ly, 200, 20));
+i1Slider.action = { |slider|
+    ~synth.set(\index1, slider.value.linlin(0, 1, 0, 3).round);
 };
+ly = ly + lh;
+
+i2Label = StaticText(win, Rect(10, ly, 50, 20));
+i2Label.string = "i2";
+i2Slider = Slider(win, Rect(70, ly, 200, 20));
+i2Slider.action = { |slider|
+    ~synth.set(\index2, slider.value.linlin(0, 1, 0, 3).round);
+};
+ly = ly + lh;
+
+i3Label = StaticText(win, Rect(10, ly, 50, 20));
+i3Label.string = "i3";
+i3Slider = Slider(win, Rect(70, ly, 200, 20));
+i3Slider.action = { |slider|
+    ~synth.set(\index3, slider.value.linlin(0, 1, 0, 3).round);
+};
+ly = ly + lh;
+
+i4Label = StaticText(win, Rect(10, ly, 50, 20));
+i4Label.string = "i4";
+i4Slider = Slider(win, Rect(70, ly, 200, 20));
+i4Slider.action = { |slider|
+    ~synth.set(\index4, slider.value.linlin(0, 1, 0, 3).round);
+};
+ly = ly + lh;
 
 };
 )
