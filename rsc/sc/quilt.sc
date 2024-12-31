@@ -31,12 +31,15 @@ var g_mod1 = d_mod1;
 
 ~updateScopeRange = { |freq, periods|
 	var cycles = periods * (s.sampleRate / freq).asInteger;
+	var adjustedFreq = s.sampleRate/(cycles/periods) ;
 
 	Stethoscope.ugenScopes.do({
 		arg scope, i;
 		scope.cycle = cycles;
 		// scope.bufsize = 4096; // NB: can't be set dynamically
 	});
+
+	adjustedFreq;
 };
 
 ~hzToVolts = { |freq|
@@ -272,8 +275,8 @@ freqLabel = StaticText(win, Rect(270, ly, 50, 20)).string_(d_freq);
 freqSlider = Slider(win, Rect(70, ly, 200, 20));
 freqSlider.action = { |slider|
 	g_freq = slider.value.linexp(0, 1, 20, 2000);
+	g_freq = ~updateScopeRange.(g_freq, g_mod1);
 	~synth.set(\freq, g_freq);
-	~updateScopeRange.(g_freq, g_mod1);
 	freqLabel.string = g_freq;
 };
 freqSlider.value = d_freq.explin(20, 2000, 0, 1);
@@ -298,8 +301,9 @@ StaticText(win, Rect(10, ly, 50, 20)).string_("m1");
 mod1Slider = Slider(win, Rect(70, ly, 200, 20));
 mod1Slider.action = { |slider|
 	g_mod1 = slider.value.linlin(0, 1, 2, 15).round;
+	g_freq = ~updateScopeRange.(g_freq, g_mod1);
+	~synth.set(\freq, g_freq);
     ~synth.set(\mod, g_mod1);
-	~updateScopeRange.(g_freq, g_mod1);
 };
 mod1Slider.value = d_mod1.linlin(2, 15, 0, 1);
 ly = ly + lh;
