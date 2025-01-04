@@ -305,7 +305,7 @@ mod1Slider.action = { |slider|
 	~synth.set(\freq, g_freq);
     ~synth.set(\mod, g_mod1);
 };
-mod1Slider.value = d_mod1.linlin(2, 15, 0, 1);
+mod1Slider.valueAction = d_mod1.linlin(2, 15, 0, 1);
 ly = ly + lh;
 
 mod1AmtLabel = StaticText(win, Rect(10, ly, 50, 20));
@@ -314,16 +314,16 @@ mod1AmtSlider = Slider(win, Rect(70, ly, 200, 20));
 mod1AmtSlider.action = { |slider|
     ~synth.set(\npolarProj, slider.value);
 };
-mod1AmtSlider.value = d_mod1a;
+mod1AmtSlider.valueAction = d_mod1a;
 ly = ly + lh;
 
 mod1FreqLabel = StaticText(win, Rect(10, ly, 50, 20));
 mod1FreqLabel.string = "m1 f";
 mod1FreqSlider = Slider(win, Rect(70, ly, 200, 20));
 mod1FreqSlider.action = { |slider|
-    ~synth.set(\npolarRotFreq, slider.value.linexp(0, 1, 20, 2000));
+    ~synth.set(\npolarRotFreq, slider.value.linexp(0, 1, 0.1, 20000));
 };
-mod1FreqSlider.value = d_mod1f.explin(20, 2000, 0, 1);
+mod1FreqSlider.valueAction = d_mod1f.explin(0.1, 20000, 0, 1);
 ly = ly + lh;
 
 mod2Label = StaticText(win, Rect(10, ly, 50, 20));
@@ -332,7 +332,7 @@ mod2Slider = Slider(win, Rect(70, ly, 200, 20));
 mod2Slider.action = { |slider|
     ~synth.set(\syncRatio, slider.value.linlin(0, 1, 1, 8).round);
 };
-mod2Slider.value = d_mod2.linlin(1, 8, 0, 1);
+mod2Slider.valueAction = d_mod2.linlin(1, 8, 0, 1);
 ly = ly + lh;
 
 mod2AmtLabel = StaticText(win, Rect(10, ly, 50, 20));
@@ -341,16 +341,16 @@ mod2AmtSlider = Slider(win, Rect(70, ly, 200, 20));
 mod2AmtSlider.action = { |slider|
     ~synth.set(\npolarProjSliced, slider.value);
 };
-mod2AmtSlider.value = d_mod2a;
+mod2AmtSlider.valueAction = d_mod2a;
 ly = ly + lh;
 
 mod2FreqLabel = StaticText(win, Rect(10, ly, 50, 20));
 mod2FreqLabel.string = "m2 f";
 mod2FreqSlider = Slider(win, Rect(70, ly, 200, 20));
 mod2FreqSlider.action = { |slider|
-    ~synth.set(\npolarRotFreqSliced, slider.value.linexp(0, 1, 20, 2000));
+    ~synth.set(\npolarRotFreqSliced, slider.value.linexp(0, 1, 0.1, 20000));
 };
-mod2FreqSlider.value = d_mod2f.explin(20, 2000, 0, 1);
+mod2FreqSlider.valueAction = d_mod2f.explin(0.1, 20000, 0, 1);
 ly = ly + lh;
 
 
