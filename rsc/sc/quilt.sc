@@ -7,7 +7,7 @@
 (
 s.waitForBoot {
 
-var win, scope, freqSlider, ampSlider, freqLabel, ampLabel,
+var win, freqSlider, ampSlider, freqLabel, ampLabel,
   mod1Label, mod1Slider, mod1AmtLabel, mod1AmtSlider, mod1FreqLabel, mod1FreqSlider,
   mod2Label, mod2Slider, mod2AmtLabel, mod2AmtSlider, mod2FreqLabel, mod2FreqSlider,
   i1Label, i1Slider, i2Label, i2Slider, i3Label, i3Slider, i4Label, i4Slider;
@@ -241,7 +241,7 @@ var g_mod1 = d_mod1;
 
 			compressed = saturated;
 
-		scope = ([
+		([
 			phased, mixed,
 			crossing, counter/mod,
 			crossingSliced, counterSliced/mod,
