@@ -257,6 +257,7 @@ def.send(s);
 s.sync;
 
 ~synth = Synth.new(\Quilt);
+g_freq = ~updateScopeRange.(g_freq, g_mod1);
 
 win = Window("Synth Controls", Rect(100, 100, 350, 450)).front;
 win.onClose = {
