@@ -195,7 +195,8 @@ var g_mod1 = d_mod1;
 			signal3 = Select.ar(index3, [sin, triangle, saw, square]);// * amp3 * SinOsc.kr(npolarRotFreq, 2 * 2pi / mod);
 			signal4 = Select.ar(index4, [sin, triangle, saw, square]);// * amp4 * SinOsc.kr(npolarRotFreq, 3 * 2pi / mod);
 
-			mixed = Select.ar(counterSliced, [signal1, signal2, signal3, signal4]);
+			mixed = Select.ar(counterSliced, [signal1, signal2, signal3, signal4]) * 2;
+
 
 			phase = SinOsc.ar(npolarRotFreq2, counter * 2pi/modphase, npolarProj);
 			phase2 = if(mod % 2 == 0, { phase }, { (1.0 - phase) });
