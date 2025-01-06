@@ -279,7 +279,7 @@ freqSlider.action = { |slider|
 	~synth.set(\freq, g_freq);
 	freqLabel.string = g_freq;
 };
-freqSlider.value = d_freq.explin(20, 2000, 0, 1);
+freqSlider.valueAction = d_freq.explin(20, 2000, 0, 1);
 ly = ly + lh;
 
 ampLabel = StaticText(win, Rect(10, ly, 50, 20));
@@ -288,7 +288,7 @@ ampSlider = Slider(win, Rect(70, ly, 200, 20));
 ampSlider.action = { |slider|
     ~synth.set(\amp_offset, slider.value);
 };
-ampSlider.value = d_amp_offset;
+ampSlider.valueAction = d_amp_offset;
 ly = ly + lh;
 
 
