@@ -182,7 +182,9 @@ var g_mod1 = d_mod1;
 			triangle = MoogFF.ar(in: LFTri.ar(freq2), freq: 10000);
 			square = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: 10000);
 
-			crossing = LFSaw.ar(freq2 * 2, iphase: syncPhase, mul: 0.5);
+			crossing = ((Phasor.ar(Changed.kr(syncPhase), freq * 2 / s.sampleRate, 0, 1, syncPhase/s.sampleRate) * 2) - 1) / 2;
+
+			//crossing = LFSaw.ar(freq2 * 2, iphase: syncPhase, mul: 0.5);
 			counter = PulseCount.ar(crossing) % mod;
 
 			crossingSliced = LFSaw.ar(freq2 * syncRatio * 2, iphase: syncPhase, mul: 0.5);
@@ -311,6 +313,13 @@ ly = ly + lh;
 
 // ------------------------------------
 // controls - modulators
+
+StaticText(win, Rect(10, ly, 50, 20)).string_("m p");
+Slider(win, Rect(70, ly, 200, 20))
+.action_ ( { |slider|
+	~synth.set(\syncPhase, slider.value, \syncPhaseTrig, 1);
+	});
+ly = ly + lh;
 
 //mod1Label = StaticText(win, Rect(10, ly, 50, 20));
 //mod1Label.string = "m1";
