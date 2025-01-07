@@ -216,7 +216,7 @@ var g_mod1 = d_mod1;
 			phaseSliced = SinOsc.ar(npolarRotFreqSliced2, counterSliced * 2pi/mod, npolarProjSliced);
 			phaseSliced2 = if(mod % 2 == 0, { phaseSliced }, { (1.0 - phaseSliced) });
 
-			phased = mixed * (npolarProj.linlin(0, 1, 1, phase2)) * phaseSliced2;
+			phased = mixed * ((npolarProj*2).linlin(0, 1, 1, phase2)) * phaseSliced2;
 		    //phased = mixed * phase2;
 
 			phased =  MoogFF.ar(in: phased, freq: 10000);
