@@ -20,7 +20,7 @@ var d_mod1 = 2;
 var d_mod2 = 1;
 var d_mod1a = 0;
 var d_mod2a = 0;
-var d_mod1f = 20;
+var d_mod1f = 1;
 var d_mod2f = 20;
 
 var g_freq = d_freq;
