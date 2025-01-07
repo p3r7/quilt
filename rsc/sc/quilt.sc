@@ -148,7 +148,7 @@ var g_mod1 = d_mod1;
 			// CMOS-derived waveforms
 			var crossing, counter, crossingSliced, counterSliced;
 			// computed modulation index, associated phaser signals
-			var modphase, phaseAm, phaseRm, phaseRm2, phase, phase2,
+			var modphase, phaseAm, phaseRm, phase, phase2,
 		phaseSliced, phaseSliced2;
 
 			vibrato = SinOsc.kr(vib_rate, 0, vib_depth);
@@ -188,6 +188,7 @@ var g_mod1 = d_mod1;
 			crossingSliced = LFSaw.ar(freq2 * syncRatio * 2, iphase: 1+syncPhase, mul: 0.5);
 			counterSliced = PulseCount.ar(crossingSliced) % mod;
 
+			// FIXME: this doesn't work, and the logic is wrong
 			modphase = if(mod % 2 == 0, { mod - 1 }, { mod });
 
 			// REVIEW: use wavetable instead?
@@ -201,13 +202,13 @@ var g_mod1 = d_mod1;
 			phaseRm = SinOsc.ar(npolarRotFreq2, counter * 2pi/modphase, 1);
 			phaseAm = if(mod % 2 == 0, { phaseRm }, { (1.0 - phaseRm) }) / 2;
 
-		// FIXME: condition seem to be borked, dunno why
-		//phaseRm2 = if((mod == 2), { PulseCount.ar(LFSaw.ar(freq2, iphase: syncPhase, mul: 0.5)) % (2) }, { phaseRm });
+			// FIXME: condition seem to be borked, dunno why
+			//phaseRm2 = if((mod == 2), { PulseCount.ar(LFSaw.ar(freq2, iphase: syncPhase, mul: 0.5)) % (2) }, { phaseRm });
 
-
-		phaseRm = Select.ar((mod-2).clip(0, 1),
-			[SinOsc.ar(npolarRotFreq2, PulseCount.ar(LFSaw.ar(freq2, iphase: syncPhase, mul: 0.5)) % (2) * 2pi/modphase, 1),
-				phaseRm]);
+			// NB: this works, but idk why using `if` doesn't
+			phaseRm = Select.ar((mod-2).clip(0, 1),
+				[ SinOsc.ar(npolarRotFreq2, counter * 2pi/(mod-1), 1),
+				  phaseRm ]);
 
 			phase2 = XFade2.ar(
 			phaseAm * npolarProj.clip(0, 0.5) * 2,
@@ -220,7 +221,7 @@ var g_mod1 = d_mod1;
 			phaseSliced = SinOsc.ar(npolarRotFreqSliced2, counterSliced * 2pi/modphase, npolarProjSliced);
 			phaseSliced2 = if(mod % 2 == 0, { phaseSliced }, { (1.0 - phaseSliced) });
 
-		phased = mixed * (npolarProj.linlin(0, 1, 1, phase2)) * phaseSliced2;
+			phased = mixed * (npolarProj.linlin(0, 1, 1, phase2)) * phaseSliced2;
 		    //phased = mixed * phase2;
 
 			phased =  MoogFF.ar(in: phased, freq: 10000);
@@ -261,7 +262,7 @@ var g_mod1 = d_mod1;
 
 		([
 			phased, mixed/2,
-			phase2, phaseRm, phaseAm,
+			phaseRm, phaseAm,
 			crossingSliced, counterSliced/mod,
 			crossing, counter/mod,
 			signal1, signal2, signal3,
