@@ -185,7 +185,7 @@ var g_mod1 = d_mod1;
 			crossing = LFSaw.ar(freq2 * 2, iphase: syncPhase, mul: 0.5);
 			counter = PulseCount.ar(crossing) % mod;
 
-			crossingSliced = LFSaw.ar(freq2 * syncRatio * 2, iphase: 1+syncPhase, mul: 0.5);
+			crossingSliced = LFSaw.ar(freq2 * syncRatio * 2, iphase: syncPhase, mul: 0.5);
 			counterSliced = PulseCount.ar(crossingSliced) % mod;
 
 			// REVIEW: use wavetable instead?
