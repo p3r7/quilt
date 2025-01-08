@@ -26,6 +26,12 @@ var d_mod2f = 20;
 var g_freq = d_freq;
 var g_mod1 = d_mod1;
 
+
+~sawBuffer = Buffer.alloc(s, 512, 1);
+~sawValues = (0..511).collect { |i| (i / 511) * 2 - 1 };
+//~sawBuffer.setn(0, (0..511).collect { |i| (i / 511) * 2 - 1 });
+~sawBuffer.loadCollection(~sawValues);
+
 // ------------------------------------
 // helper fns
 
@@ -146,7 +152,7 @@ var g_mod1 = d_mod1;
 			var mixed, phased, filtered, ironed, saturated, compressed;
 
 			// CMOS-derived waveforms
-			var crossing, counter, crossingSliced, counterSliced;
+			var crossing, crossing2, counter, crossingSliced, counterSliced;
 			// computed modulation index, associated phaser signals
 			var phaseAm, phaseRm, phase;
 			var phaseSlicedAm, phaseSlicedRm, phaseSliced;
@@ -182,9 +188,9 @@ var g_mod1 = d_mod1;
 			triangle = MoogFF.ar(in: LFTri.ar(freq2), freq: 10000);
 			square = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: 10000);
 
-			crossing = ((Phasor.ar(Changed.kr(syncPhase), freq * 2 / s.sampleRate, 0, 1, syncPhase/s.sampleRate) * 2) - 1) / 2;
+		    crossing = Osc.ar(~sawBuffer, freq2 * 2, syncPhase * ~sawBuffer.numFrames) * 0.25;
 
-			//crossing = LFSaw.ar(freq2 * 2, iphase: syncPhase, mul: 0.5);
+			crossing2 = LFSaw.ar(freq2 * 2, iphase: syncPhase, mul: 0.5);
 			counter = PulseCount.ar(crossing) % mod;
 
 			crossingSliced = LFSaw.ar(freq2 * syncRatio * 2, iphase: syncPhase, mul: 0.5);
@@ -281,6 +287,8 @@ win = Window("Synth Controls", Rect(100, 100, 350, 450)).front;
 win.onClose = {
 	Stethoscope.ugenScopes.do({ arg scope, i; scope.quit() });
     ~synth.free;
+	~sawBuffer.free;
+	~sawValues.free;
 };
 
 
@@ -317,7 +325,7 @@ ly = ly + lh;
 StaticText(win, Rect(10, ly, 50, 20)).string_("m p");
 Slider(win, Rect(70, ly, 200, 20))
 .action_ ( { |slider|
-	~synth.set(\syncPhase, slider.value, \syncPhaseTrig, 1);
+	~synth.set(\syncPhase, slider.value);
 	});
 ly = ly + lh;
 
