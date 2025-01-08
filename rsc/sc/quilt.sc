@@ -130,7 +130,11 @@ var g_mod1 = d_mod1;
 			cutoff_offness_max = 0.0,
 			cutoff_offness_pct = 0.0,
 			// saturation/compression
-			sat_threshold = 0.5;
+			sat_threshold = 0.5,
+// phase mod
+		pmFreq = 0.5,
+		pmAmt = 0
+		;
 
 			// frequencies
 			var semitoneDiff, hzTrack, fsemitoneDiff;
@@ -154,6 +158,7 @@ var g_mod1 = d_mod1;
 			// computed modulation index, associated phaser signals
 			var phaseAm, phaseRm, phase;
 			var phaseSlicedAm, phaseSlicedRm, phaseSliced;
+		var pm;
 
 			vibrato = SinOsc.kr(vib_rate, 0, vib_depth);
 
@@ -188,10 +193,14 @@ var g_mod1 = d_mod1;
 
 		crossing = Osc.ar(~sawBuffer, freq2 * 2, pi + syncPhase.linlin(-1, 1, -2pi, 2pi)) * 0.25;
 
+		pm = SinOsc.ar(pmFreq) * pmAmt;
+
+		crossing = Osc.ar(~sawBuffer, freq2 * 2, pi + (pm + syncPhase).linlin(-1, 1, -2pi, 2pi)) * 0.25;
+
 			crossing2 = LFSaw.ar(freq2 * 2, iphase: syncPhase, mul: 0.5);
 			counter = PulseCount.ar(crossing) % mod;
 
-			crossingSliced = Osc.ar(~sawBuffer, freq2 * syncRatio * 2, pi + syncPhase.linlin(-1, 1, -2pi, 2pi)) * 0.25;
+		crossingSliced = Osc.ar(~sawBuffer, freq2 * syncRatio * 2, pi + (pm + syncPhase).linlin(-1, 1, -2pi, 2pi)) * 0.25;
 			crossingSliced2 = LFSaw.ar(freq2 * syncRatio * 2, iphase: syncPhase, mul: 0.5);
 			counterSliced = PulseCount.ar(crossingSliced) % mod;
 
@@ -320,6 +329,22 @@ ly = ly + lh;
 
 // ------------------------------------
 // controls - modulators
+
+StaticText(win, Rect(10, ly, 50, 20)).string_("pm f");
+Slider(win, Rect(70, ly, 200, 20))
+.action_ ( { |slider|
+	~synth.set(\pmFreq, slider.value.linexp(0, 1, 0.1, 20000));
+	})
+.valueAction_(0);
+ly = ly + lh;
+
+StaticText(win, Rect(10, ly, 50, 20)).string_("pm a");
+Slider(win, Rect(70, ly, 200, 20))
+.action_ ( { |slider|
+	~synth.set(\pmAmt, slider.value);
+	})
+.valueAction_(0);
+ly = ly + lh;
 
 StaticText(win, Rect(10, ly, 50, 20)).string_("m p");
 Slider(win, Rect(70, ly, 200, 20))
