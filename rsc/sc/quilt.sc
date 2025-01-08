@@ -27,9 +27,8 @@ var g_freq = d_freq;
 var g_mod1 = d_mod1;
 
 
-~sawBuffer = Buffer.alloc(s, 512, 1);
-~sawValues = (0..511).collect { |i| (i / 511) * 2 - 1 };
-//~sawBuffer.setn(0, (0..511).collect { |i| (i / 511) * 2 - 1 });
+~sawBuffer = Buffer.alloc(s, 4096, 1);
+~sawValues = (0..(~sawBuffer.numFrames-1)).collect { |i| (i / (~sawBuffer.numFrames-1)) * 2 - 1 };
 ~sawBuffer.loadCollection(~sawValues);
 
 // ------------------------------------
@@ -42,7 +41,6 @@ var g_mod1 = d_mod1;
 	Stethoscope.ugenScopes.do({
 		arg scope, i;
 		scope.cycle = cycles;
-		// scope.bufsize = 4096; // NB: can't be set dynamically
 	});
 
 	adjustedFreq;
@@ -152,7 +150,7 @@ var g_mod1 = d_mod1;
 			var mixed, phased, filtered, ironed, saturated, compressed;
 
 			// CMOS-derived waveforms
-			var crossing, crossing2, counter, crossingSliced, counterSliced;
+			var crossing, crossing2, counter, crossingSliced, crossingSliced2, counterSliced;
 			// computed modulation index, associated phaser signals
 			var phaseAm, phaseRm, phase;
 			var phaseSlicedAm, phaseSlicedRm, phaseSliced;
@@ -188,12 +186,13 @@ var g_mod1 = d_mod1;
 			triangle = MoogFF.ar(in: LFTri.ar(freq2), freq: 10000);
 			square = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: 10000);
 
-		    crossing = Osc.ar(~sawBuffer, freq2 * 2, syncPhase * ~sawBuffer.numFrames) * 0.25;
+		crossing = Osc.ar(~sawBuffer, freq2 * 2, pi + syncPhase.linlin(-1, 1, -2pi, 2pi)) * 0.25;
 
 			crossing2 = LFSaw.ar(freq2 * 2, iphase: syncPhase, mul: 0.5);
 			counter = PulseCount.ar(crossing) % mod;
 
-			crossingSliced = LFSaw.ar(freq2 * syncRatio * 2, iphase: syncPhase, mul: 0.5);
+			crossingSliced = Osc.ar(~sawBuffer, freq2 * syncRatio * 2, pi + syncPhase.linlin(-1, 1, -2pi, 2pi)) * 0.25;
+			crossingSliced2 = LFSaw.ar(freq2 * syncRatio * 2, iphase: syncPhase, mul: 0.5);
 			counterSliced = PulseCount.ar(crossingSliced) % mod;
 
 			// REVIEW: use wavetable instead?
@@ -325,8 +324,10 @@ ly = ly + lh;
 StaticText(win, Rect(10, ly, 50, 20)).string_("m p");
 Slider(win, Rect(70, ly, 200, 20))
 .action_ ( { |slider|
-	~synth.set(\syncPhase, slider.value);
-	});
+	var p = slider.value.linlin(0, 1, -1, 1);
+	~synth.set(\syncPhase, p);
+	})
+.valueAction_(0.5);
 ly = ly + lh;
 
 //mod1Label = StaticText(win, Rect(10, ly, 50, 20));
