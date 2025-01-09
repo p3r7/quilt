@@ -84,6 +84,8 @@ var g_mod1 = d_mod1;
 			gate_pair_out = 0,
 			vel = 0.5,
 			freq = 200,
+			raw_osc_cutoff = 10000,
+			phased_cutoff = 10000,
 			freq_sag = 0.1,
 			vib_rate = 5,
 			vib_depth = 0.0,
@@ -187,9 +189,9 @@ var g_mod1 = d_mod1;
 			hzTrack = freq2.cpsmidi / 12;
 
 			sin = SinOsc.ar(freq2) * 0.5; // FIX: needed to half amp for sine
-			saw = MoogFF.ar(in: Saw.ar(freq2), freq: 10000);
-			triangle = MoogFF.ar(in: LFTri.ar(freq2), freq: 10000);
-			square = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: 10000);
+			saw = MoogFF.ar(in: Saw.ar(freq2), freq: raw_osc_cutoff);
+			triangle = MoogFF.ar(in: LFTri.ar(freq2), freq: raw_osc_cutoff);
+			square = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: raw_osc_cutoff);
 
 		crossing = Osc.ar(~sawBuffer, freq2 * 2, pi + syncPhase.linlin(-1, 1, -2pi, 2pi)) * 0.25;
 
@@ -235,7 +237,7 @@ var g_mod1 = d_mod1;
 		* ((npolarProj*2).linlin(0, 1, 1, phase))
 		* ((npolarProjSliced*2).linlin(0, 1, 1, phaseSliced));
 
-			phased =  MoogFF.ar(in: phased, freq: 10000);
+			phased =  MoogFF.ar(in: phased, freq: phased_cutoff);
 
 			env = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 0);
 			// NB: enveloppes for when a voice is dynamically paired
