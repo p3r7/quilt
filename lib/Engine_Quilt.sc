@@ -184,7 +184,6 @@ Engine_Quilt : CroneEngine {
 
 			phased = mixed * phase2 * phaseSliced2;
 
-			phased =  MoogFF.ar(in: phased, freq: 10000);
 			phased =  MoogFF.ar(in: phased, freq: phased_cutoff);
 
 			env = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 0);
