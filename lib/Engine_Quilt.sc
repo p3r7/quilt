@@ -6,6 +6,13 @@ Engine_Quilt : CroneEngine {
 		var server = Crone.server;
 		var def;
 
+		~sawBuffer = Buffer.alloc(server, 4096, 1);
+		~sawValues = (0..(~sawBuffer.numFrames-1)).collect { |i| (i / (~sawBuffer.numFrames-1)) * 2 - 1 };
+		~sawBuffer.loadCollection(~sawValues);
+
+		// ------------------------------------
+		// helper fns
+
 		~hzToVolts = { |freq|
 			(freq / 20).log2;
 		};
@@ -68,6 +75,9 @@ Engine_Quilt : CroneEngine {
 			npolarProjSliced = 1.0,
 			npolarRotFreqSliced = 10,
 			npolarRotFreqSliced_sag = 0.1,
+			// phase mod
+			pmFreq = 0.5,
+			pmAmt = 0,
 			// amp env
 			amp_offset = 0.0,
 			attack = 0.1, decay = 0.1, sustain = 0.7, release = 0.5,
@@ -115,6 +125,7 @@ Engine_Quilt : CroneEngine {
 			var crossing, counter, crossingSliced, counterSliced;
 			// computed modulation index, associated phaser signals
 			var modphase, phase, phase2, phaseSliced, phaseSliced2;
+			var pm;
 
 			vibrato = SinOsc.kr(vib_rate, 0, vib_depth);
 
@@ -147,10 +158,12 @@ Engine_Quilt : CroneEngine {
 			triangle = MoogFF.ar(in: LFTri.ar(freq2), freq: raw_osc_cutoff);
 			square = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: raw_osc_cutoff);
 
-			crossing = LFSaw.ar(freq2 * 2, iphase: syncPhase, mul: 0.5);
+			pm = SinOsc.ar(pmFreq) * pmAmt;
+
+			crossing = Osc.ar(~sawBuffer, freq2 * 2, pi + (pm + syncPhase).linlin(-1, 1, -2pi, 2pi)) * 0.25;
 			counter = PulseCount.ar(crossing) % mod;
 
-			crossingSliced = LFSaw.ar(freq2 * syncRatio * 2, iphase: syncPhase, mul: 0.5);
+			crossingSliced = Osc.ar(~sawBuffer, freq2 * syncRatio * 2, pi + (pm + syncPhase).linlin(-1, 1, -2pi, 2pi)) * 0.25;
 			counterSliced = PulseCount.ar(crossingSliced) % mod;
 
 			modphase = if(mod % 2 == 0, { mod - 1 }, { mod });
@@ -248,6 +261,9 @@ Engine_Quilt : CroneEngine {
 			\npolarProjSliced, 1.0,
 			\npolarRotFreqSliced, 10,
 			\npolarRotFreqSliced_sag, 0.1,
+			// phase mod
+			\pmFreq, 0.5,
+			\pmAmt, 0,
 			// amp env
 			\amp_offset, 0.0,
 			\attack, 0.1,
@@ -320,6 +336,8 @@ Engine_Quilt : CroneEngine {
 
 	free {
 		synth.free();
+		~sawBuffer.free;
+		~sawValues.free;
 	}
 }
 

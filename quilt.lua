@@ -662,14 +662,21 @@ function init()
                screen_dirty = true
   end}
 
-  params:add{type = "number", id = "sync_phase", name = "sync_phase",
-             min = 0, max = 360, default = 0,
+  params:add{type = "number", id = "sync_phase", name = "sync phase",
+             min = -360, max = 360, default = 0,
              formatter = fmt_phase,
              action = function(v)
-               local a = util.linlin(0, 360, 0, 2 * math.pi, v)
-               engine.syncPhase_all(a)
+               engine.syncPhase_all(v/360)
                screen_dirty = true
   end}
+  params:add{type = "control", id = "sync_pm_f", name = "PM freq",
+             controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
+             action = engine.pmFreq_all}
+  params:set("sync_pm_f", 0.4)
+  params:add{type = "control", id = "sync_pm_a", name = "Pm amount",
+             controlspec = pct_control_off, formatter = fmt_percent,
+             action = engine.pmAmt_all}
+  params:set("sync_pm_a", 0.2)
 
   params:add{type = "control", id = "raw_osc_cutoff", name = "raw osc cutoff",
              controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
