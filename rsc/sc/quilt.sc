@@ -156,8 +156,9 @@ var g_mod1 = d_mod1;
 			var mixed, phased, filtered, ironed, saturated, compressed;
 
 			// CMOS-derived waveforms
-			var crossing, crossing2, counter, crossingSliced, crossingSliced2, counterSliced;
+			var crossing, counter, crossingSliced, counterSliced;
 			// computed modulation index, associated phaser signals
+			var phaseOld, phaseSlicedOld;
 			var phaseAm, phaseRm, phase;
 			var phaseSlicedAm, phaseSlicedRm, phaseSliced;
 		var pm;
@@ -193,16 +194,12 @@ var g_mod1 = d_mod1;
 			triangle = MoogFF.ar(in: LFTri.ar(freq2), freq: raw_osc_cutoff);
 			square = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: raw_osc_cutoff);
 
+			pm = SinOsc.ar(pmFreq) * pmAmt;
 
-		pm = SinOsc.ar(pmFreq) * pmAmt;
-
-		crossing = Osc.ar(~sawBuffer, freq2 * 2, pi + (pm + syncPhase).linlin(-1, 1, -2pi, 2pi)) * 0.25;
-
-			crossing2 = LFSaw.ar(freq2 * 2, iphase: syncPhase, mul: 0.5);
+			crossing = Osc.ar(~sawBuffer, freq2 * 2, pi + (pm + syncPhase).linlin(-1, 1, -2pi, 2pi)) * 0.25;
 			counter = PulseCount.ar(crossing) % mod;
 
-		crossingSliced = Osc.ar(~sawBuffer, freq2 * syncRatio * 2, pi + (pm + syncPhase).linlin(-1, 1, -2pi, 2pi)) * 0.25;
-			crossingSliced2 = LFSaw.ar(freq2 * syncRatio * 2, iphase: syncPhase, mul: 0.5);
+			crossingSliced = Osc.ar(~sawBuffer, freq2 * syncRatio * 2, pi + (pm + syncPhase).linlin(-1, 1, -2pi, 2pi)) * 0.25;
 			counterSliced = PulseCount.ar(crossingSliced) % mod;
 
 			// REVIEW: use wavetable instead?
@@ -213,17 +210,23 @@ var g_mod1 = d_mod1;
 
 			mixed = Select.ar(counterSliced, [signal1, signal2, signal3, signal4]) * 2;
 
+			phaseOld = SinOsc.ar(npolarRotFreq2, counter * 2pi/mod, npolarProj);
+			phaseOld = if(mod % 2 == 0, { phaseOld }, { (1.0 - phaseOld) });
+
+			phaseSlicedOld = SinOsc.ar(npolarRotFreqSliced2, counterSliced * 2pi/mod, npolarProjSliced);
+			phaseSlicedOld = if(mod % 2 == 0, { phaseSlicedOld }, { (1.0 - phaseSlicedOld) });
+
 			phaseRm = SinOsc.ar(npolarRotFreq2, counter * 2pi/mod, 1);
 			phaseAm = if(mod % 2 == 0, { phaseRm }, { (1.0 - phaseRm) }) / 2;
 			// NB: edge-case for when mod1 is 2
 			// this works, but idk why using `if(mod == 2, ...)` doesn't
 			phaseRm = Select.ar((mod-2).clip(0, 1),
 				[ SinOsc.ar(npolarRotFreq2, counter * 2pi/(mod-1), 1),
-				  phaseRm ]);
+					phaseRm ]);
 			phase = XFade2.ar(
-			phaseAm * npolarProj.clip(0, 0.5) * 2,
-			phaseRm,
-			(npolarProj * 2) - 1);
+				phaseAm * npolarProj.clip(0, 0.5) * 2,
+				phaseRm,
+				(npolarProj * 2) - 1);
 
 			phaseSlicedRm = SinOsc.ar(npolarRotFreqSliced2, counterSliced * 2pi/mod, 1);
 			phaseSlicedAm = if(mod % 2 == 0, { phaseSlicedRm }, { (1.0 - phaseSlicedRm) }) / 2;
@@ -232,9 +235,11 @@ var g_mod1 = d_mod1;
 				phaseSlicedRm,
 				(npolarProjSliced * 2) - 1);
 
-			phased = mixed
-		* ((npolarProj*2).linlin(0, 1, 1, phase))
-		* ((npolarProjSliced*2).linlin(0, 1, 1, phaseSliced));
+			// phased = mixed
+			// * ((npolarProj*2).linlin(0, 1, 1, phase))
+			// * ((npolarProjSliced*2).linlin(0, 1, 1, phaseSliced));
+
+			phased = mixed * phaseOld * phaseSlicedOld;
 
 			phased =  MoogFF.ar(in: phased, freq: phased_cutoff);
 
@@ -274,10 +279,11 @@ var g_mod1 = d_mod1;
 
 		([
 			phased, mixed/2,
-			phaseSlicedRm, phaseSlicedAm,
-			phaseRm, phaseAm,
-			crossingSliced, counterSliced/mod,
-			crossing, counter/mod,
+			// phaseSlicedRm, phaseSlicedAm,
+			phaseOld,
+			phase, phaseRm, phaseAm,
+			// crossingSliced, counterSliced/mod,
+			// crossing, counter/mod,
 			signal1, signal2, signal3,
 			signal4
 		].scope(name: "QuiltScope", bufsize: 4096*2));
