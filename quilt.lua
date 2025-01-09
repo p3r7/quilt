@@ -1091,9 +1091,6 @@ function update_intant_cutoff(base_cutoff)
 end
 
 function env_tick()
-  -- TODO: recompute cutoff
-  -- TODO: recompute amp
-
   local elapsed_t = 1/ENV_FPS
 
   for i=1,NB_VOICES do
