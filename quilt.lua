@@ -671,6 +671,18 @@ function init()
                screen_dirty = true
   end}
 
+  params:add{type = "control", id = "raw_osc_cutoff", name = "raw osc cutoff",
+             controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
+             action = function(v)
+               engine.raw_osc_cutoff_all(v)
+  end}
+  params:set("raw_osc_cutoff", 8000)
+  params:add{type = "control", id = "phased_cutoff", name = "phased cutoff",
+             controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
+             action = function(v)
+               engine.phased_cutoff_all(v)
+  end}
+  params:set("phased_cutoff", 20000)
 
   -- --------------------------------
   params:add_separator("filter", "filter")
