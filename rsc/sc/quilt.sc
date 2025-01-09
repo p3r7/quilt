@@ -193,7 +193,6 @@ var g_mod1 = d_mod1;
 			triangle = MoogFF.ar(in: LFTri.ar(freq2), freq: raw_osc_cutoff);
 			square = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: raw_osc_cutoff);
 
-		crossing = Osc.ar(~sawBuffer, freq2 * 2, pi + syncPhase.linlin(-1, 1, -2pi, 2pi)) * 0.25;
 
 		pm = SinOsc.ar(pmFreq) * pmAmt;
 
