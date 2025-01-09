@@ -6,6 +6,13 @@ Engine_Quilt : CroneEngine {
 		var server = Crone.server;
 		var def;
 
+		~sawBuffer = Buffer.alloc(server, 4096, 1);
+		~sawValues = (0..(~sawBuffer.numFrames-1)).collect { |i| (i / (~sawBuffer.numFrames-1)) * 2 - 1 };
+		~sawBuffer.loadCollection(~sawValues);
+
+		// ------------------------------------
+		// helper fns
+
 		~hzToVolts = { |freq|
 			(freq / 20).log2;
 		};
@@ -34,6 +41,9 @@ Engine_Quilt : CroneEngine {
 			instantCutoffHz;
 		};
 
+
+		// ------------------------------------
+
 		def = SynthDef(\Quilt, {
 			arg out = 0,
 			gate = 0,
@@ -41,6 +51,8 @@ Engine_Quilt : CroneEngine {
 			gate_pair_out = 0,
 			vel = 0.5,
 			freq = 200,
+			raw_osc_cutoff = 10000,
+			phased_cutoff = 10000,
 			freq_sag = 0.1,
 			vib_rate = 5,
 			vib_depth = 0.0,
@@ -63,6 +75,9 @@ Engine_Quilt : CroneEngine {
 			npolarProjSliced = 1.0,
 			npolarRotFreqSliced = 10,
 			npolarRotFreqSliced_sag = 0.1,
+			// phase mod
+			pmFreq = 0.5,
+			pmAmt = 0,
 			// amp env
 			amp_offset = 0.0,
 			attack = 0.1, decay = 0.1, sustain = 0.7, release = 0.5,
@@ -110,6 +125,7 @@ Engine_Quilt : CroneEngine {
 			var crossing, counter, crossingSliced, counterSliced;
 			// computed modulation index, associated phaser signals
 			var modphase, phase, phase2, phaseSliced, phaseSliced2;
+			var pm;
 
 			vibrato = SinOsc.kr(vib_rate, 0, vib_depth);
 
@@ -137,15 +153,17 @@ Engine_Quilt : CroneEngine {
 
 			hzTrack = freq2.cpsmidi / 12;
 
-			sin = SinOsc.ar(freq2);
-			saw = MoogFF.ar(in: Saw.ar(freq2), freq: 10000);
-			triangle = MoogFF.ar(in: LFTri.ar(freq2), freq: 10000);
-			square = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: 10000);
+			sin = SinOsc.ar(freq2) * 0.5; // FIX: needed to half amp for sine
+			saw = MoogFF.ar(in: Saw.ar(freq2), freq: raw_osc_cutoff);
+			triangle = MoogFF.ar(in: LFTri.ar(freq2), freq: raw_osc_cutoff);
+			square = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: raw_osc_cutoff);
 
-			crossing = LFSaw.ar(freq2 * 2, iphase: syncPhase, mul: 0.5);
+			pm = SinOsc.ar(pmFreq) * pmAmt;
+
+			crossing = Osc.ar(~sawBuffer, freq2 * 2, pi + (pm + syncPhase).linlin(-1, 1, -2pi, 2pi)) * 0.25;
 			counter = PulseCount.ar(crossing) % mod;
 
-			crossingSliced = LFSaw.ar(freq2 * syncRatio * 2, iphase: syncPhase, mul: 0.5);
+			crossingSliced = Osc.ar(~sawBuffer, freq2 * syncRatio * 2, pi + (pm + syncPhase).linlin(-1, 1, -2pi, 2pi)) * 0.25;
 			counterSliced = PulseCount.ar(crossingSliced) % mod;
 
 			modphase = if(mod % 2 == 0, { mod - 1 }, { mod });
@@ -166,7 +184,7 @@ Engine_Quilt : CroneEngine {
 
 			phased = mixed * phase2 * phaseSliced2;
 
-			phased =  MoogFF.ar(in: phased, freq: 10000);
+			phased =  MoogFF.ar(in: phased, freq: phased_cutoff);
 
 			env = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 0);
 			// NB: enveloppes for when a voice is dynamically paired
@@ -216,6 +234,8 @@ Engine_Quilt : CroneEngine {
 			\vel, 0.5,
 			\vib_rate, 5,
 			\vib_depth, 0.0,
+			\raw_osc_cutoff, 10000,
+			\phased_cutoff,  10000,
 			// offness
 			\pitch_offness_max, 0.0,
 			\pitch_offness_pct, 0.0,
@@ -240,6 +260,9 @@ Engine_Quilt : CroneEngine {
 			\npolarProjSliced, 1.0,
 			\npolarRotFreqSliced, 10,
 			\npolarRotFreqSliced_sag, 0.1,
+			// phase mod
+			\pmFreq, 0.5,
+			\pmAmt, 0,
 			// amp env
 			\amp_offset, 0.0,
 			\attack, 0.1,
@@ -312,6 +335,8 @@ Engine_Quilt : CroneEngine {
 
 	free {
 		synth.free();
+		~sawBuffer.free;
+		~sawValues.free;
 	}
 }
 

@@ -662,15 +662,34 @@ function init()
                screen_dirty = true
   end}
 
-  params:add{type = "number", id = "sync_phase", name = "sync_phase",
-             min = 0, max = 360, default = 0,
+  params:add{type = "number", id = "sync_phase", name = "sync phase",
+             min = -360, max = 360, default = 0,
              formatter = fmt_phase,
              action = function(v)
-               local a = util.linlin(0, 360, 0, 2 * math.pi, v)
-               engine.syncPhase_all(a)
+               engine.syncPhase_all(v/360)
                screen_dirty = true
   end}
+  params:add{type = "control", id = "sync_pm_f", name = "PM freq",
+             controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
+             action = engine.pmFreq_all}
+  params:set("sync_pm_f", 0.4)
+  params:add{type = "control", id = "sync_pm_a", name = "Pm amount",
+             controlspec = pct_control_off, formatter = fmt_percent,
+             action = engine.pmAmt_all}
+  params:set("sync_pm_a", 0.2)
 
+  params:add{type = "control", id = "raw_osc_cutoff", name = "raw osc cutoff",
+             controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
+             action = function(v)
+               engine.raw_osc_cutoff_all(v)
+  end}
+  params:set("raw_osc_cutoff", 8000)
+  params:add{type = "control", id = "phased_cutoff", name = "phased cutoff",
+             controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
+             action = function(v)
+               engine.phased_cutoff_all(v)
+  end}
+  params:set("phased_cutoff", 20000)
 
   -- --------------------------------
   params:add_separator("filter", "filter")
@@ -1072,9 +1091,6 @@ function update_intant_cutoff(base_cutoff)
 end
 
 function env_tick()
-  -- TODO: recompute cutoff
-  -- TODO: recompute amp
-
   local elapsed_t = 1/ENV_FPS
 
   for i=1,NB_VOICES do
@@ -1126,6 +1142,63 @@ end
 
 -- -------------------------------------------------------------------------
 -- screen
+
+function draw_mod_wave(x, w,
+                       y, a,
+                       sign, dir,
+                       segment, nb_segments,
+                       mod1_a, mod2_a,
+                       mod1hz, mod2hz)
+
+  if dir == nil then
+    dir = 1
+  end
+  if segment == nil then
+    segment = 1
+  end
+  if nb_segments == nil then
+    nb_segments = 1
+  end
+
+  local half_wave_w = w * nb_segments
+  local w_offset = util.linlin(1, nb_segments+1, 0, half_wave_w, segment)
+
+  local x0 = x
+  local xn = x0 + dir * half_wave_w
+  local xn_pos = x0 + half_wave_w
+  local x1 = x0 + dir * w_offset
+  local x2 = x1 + dir * w
+
+  -- print("("..x0 ..","..xn..") - ("..x1 ..","..x2..") - "..sign..","..dir)
+
+  for i=x1,x2,dir do
+    local startn = 0
+    local endn = 1/2
+    if sign == -1 then
+      local startn = 1/2
+      local endn = 1
+      -- print(linlin(x0, xn, startn, endn, i))
+    end
+    local nx = math.abs(linlin(x0, xn, startn, endn, i))
+
+    local mod_a = 0
+    if mod1hz then
+      -- print(mod1hz)
+      local nxa = math.abs(linlin(x0, xn, 0, mod1hz, i))
+      mod_a = mod_a + nsin(nxa) * mod1_a
+    end
+    if mod2hz then
+      local nxb = math.abs(linlin(x0, xn, 0, mod2hz, i))
+      mod_a = mod_a + nsin(nxb) * mod2_a
+    end
+    local rm_visual_speed = math.max(mod1hz*mod1_a, mod2hz*mod2_a)
+    local rm_visual_a = util.explin(0.000001, 2500, 4, 10, rm_visual_speed)
+    rm_visual_a = 4
+
+    screen.line(i, y + 1 * a * sign * -1 + sign * mod_a * rm_visual_a)
+  end
+end
+
 
 -- NB: mod1_a, mod2_a, mod1hz, mod2hz are used to displaying the ring mod effect
 -- i'm pretty sure the math is plain wrong, but it does look right...
@@ -1186,7 +1259,7 @@ function draw_wave(waveshape,
   end
 end
 
-function draw_mod_wave(x, w, y, a, sign, dir)
+function draw_slicing_wave(x, w, y, a, sign, dir)
   screen.level(S_LVL_MOD)
   if dir == nil then
     dir = 1
@@ -1447,12 +1520,12 @@ function draw_page_main()
 
   -- mod wave
   for i=1,half_waves do
-    draw_mod_wave(x_offset + (i-1) * half_wave_w, half_wave_w, abscissa, a, sign)
+    draw_slicing_wave(x_offset + (i-1) * half_wave_w, half_wave_w, abscissa, a, sign)
     sign = sign * -1
   end
 
   for i=1,half_waves do
-    draw_mod_wave(x_offset - (i-1) * half_wave_w, half_wave_w, abscissa, a, -sign, -1)
+    draw_slicing_wave(x_offset - (i-1) * half_wave_w, half_wave_w, abscissa, a, -sign, -1)
     sign = sign * -1
   end
 
@@ -1469,6 +1542,27 @@ function draw_page_main()
       local mod1_a = linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), params:get("npolar_rot_amount"))
       local mod2_a =  linlin(0, 1, 1, amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1), params:get("npolar_rot_amount_sliced"))
       local pole_a = a * mod1_a * mod2_a
+
+      -- AM
+      -- local am_pole_a = a * linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), 0.5)
+      -- draw_mod_wave(x_offset + (i-1) * half_wave_w, segment_w,
+      --               abscissa, am_pole_a,
+      --               sign, 1,
+      --               j, sync_ratio,
+      --               0.5, params:get("npolar_rot_amount_sliced"),
+      --               params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
+      -- screen.stroke()
+
+      -- RM
+      -- local rm_pole_a = a * linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), 1)
+      -- draw_mod_wave(x_offset + (i-1) * half_wave_w, segment_w,
+      --               abscissa, rm_pole_a,
+      --               sign, 1,
+      --               j, sync_ratio,
+      --               1, params:get("npolar_rot_amount_sliced"),
+      --               params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
+      -- screen.stroke()
+
       draw_wave(waveshape,
                 x_offset + (i-1) * half_wave_w, segment_w,
                 abscissa, pole_a,
