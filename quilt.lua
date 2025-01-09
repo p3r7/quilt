@@ -1544,24 +1544,24 @@ function draw_page_main()
       local pole_a = a * mod1_a * mod2_a
 
       -- AM
-      local am_pole_a = a * linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), 0.5)
-      draw_mod_wave(x_offset + (i-1) * half_wave_w, segment_w,
-                    abscissa, am_pole_a,
-                    sign, 1,
-                    j, sync_ratio,
-                    0.5, params:get("npolar_rot_amount_sliced"),
-                    params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
-      screen.stroke()
+      -- local am_pole_a = a * linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), 0.5)
+      -- draw_mod_wave(x_offset + (i-1) * half_wave_w, segment_w,
+      --               abscissa, am_pole_a,
+      --               sign, 1,
+      --               j, sync_ratio,
+      --               0.5, params:get("npolar_rot_amount_sliced"),
+      --               params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
+      -- screen.stroke()
 
       -- RM
-      local rm_pole_a = a * linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), 1)
-      draw_mod_wave(x_offset + (i-1) * half_wave_w, segment_w,
-                    abscissa, rm_pole_a,
-                    sign, 1,
-                    j, sync_ratio,
-                    1, params:get("npolar_rot_amount_sliced"),
-                    params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
-      screen.stroke()
+      -- local rm_pole_a = a * linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), 1)
+      -- draw_mod_wave(x_offset + (i-1) * half_wave_w, segment_w,
+      --               abscissa, rm_pole_a,
+      --               sign, 1,
+      --               j, sync_ratio,
+      --               1, params:get("npolar_rot_amount_sliced"),
+      --               params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
+      -- screen.stroke()
 
       draw_wave(waveshape,
                 x_offset + (i-1) * half_wave_w, segment_w,
@@ -1570,12 +1570,10 @@ function draw_page_main()
                 j, sync_ratio,
                 params:get("npolar_rot_amount"), params:get("npolar_rot_amount_sliced"),
                 params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
-      screen.stroke()
-
     end
     sign = sign * -1
   end
-  -- screen.stroke()
+  screen.stroke()
 
   sign = 1
   screen.move(x_offset, abscissa)
