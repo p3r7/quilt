@@ -1202,7 +1202,7 @@ function draw_wave(waveshape,
   end
 end
 
-function draw_mod_wave(x, w, y, a, sign, dir)
+function draw_slicing_wave(x, w, y, a, sign, dir)
   screen.level(S_LVL_MOD)
   if dir == nil then
     dir = 1
@@ -1463,12 +1463,12 @@ function draw_page_main()
 
   -- mod wave
   for i=1,half_waves do
-    draw_mod_wave(x_offset + (i-1) * half_wave_w, half_wave_w, abscissa, a, sign)
+    draw_slicing_wave(x_offset + (i-1) * half_wave_w, half_wave_w, abscissa, a, sign)
     sign = sign * -1
   end
 
   for i=1,half_waves do
-    draw_mod_wave(x_offset - (i-1) * half_wave_w, half_wave_w, abscissa, a, -sign, -1)
+    draw_slicing_wave(x_offset - (i-1) * half_wave_w, half_wave_w, abscissa, a, -sign, -1)
     sign = sign * -1
   end
 
