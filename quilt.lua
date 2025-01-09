@@ -1336,7 +1336,7 @@ function amp_for_pole(n, mod, rot_angle, a, dir)
   end
 
   local angle = (n-1) * 2 * math.pi / mod
-  local pole_angle = angle/(2 * math.pi) +  dir * rot_angle
+  local pole_angle = angle/(2 * math.pi) + dir * rot_angle
   while pole_angle > 1 do
     pole_angle = pole_angle - 1
   end
