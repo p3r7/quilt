@@ -108,6 +108,9 @@ var g_mod1 = d_mod1;
 			npolarProjSliced = 1.0,
 			npolarRotFreqSliced = 10,
 			npolarRotFreqSliced_sag = 0.1,
+			// phase mod
+			pmFreq = 0.5,
+			pmAmt = 0,
 			// amp env
 			amp_offset = 0.0,
 			attack = 0.1, decay = 0.1, sustain = 0.7, release = 0.5,
@@ -132,10 +135,7 @@ var g_mod1 = d_mod1;
 			cutoff_offness_max = 0.0,
 			cutoff_offness_pct = 0.0,
 			// saturation/compression
-			sat_threshold = 0.5,
-// phase mod
-		pmFreq = 0.5,
-		pmAmt = 0
+			sat_threshold = 0.5
 		;
 
 			// frequencies
