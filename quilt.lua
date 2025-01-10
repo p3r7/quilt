@@ -678,18 +678,6 @@ function init()
              action = engine.pmAmt_all}
   params:set("sync_pm_a", 0.2)
 
-  params:add{type = "control", id = "raw_osc_cutoff", name = "raw osc cutoff",
-             controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
-             action = function(v)
-               engine.raw_osc_cutoff_all(v)
-  end}
-  params:set("raw_osc_cutoff", 8000)
-  params:add{type = "control", id = "phased_cutoff", name = "phased cutoff",
-             controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
-             action = function(v)
-               engine.phased_cutoff_all(v)
-  end}
-  params:set("phased_cutoff", 20000)
 
   -- --------------------------------
   params:add_separator("filter", "filter")
@@ -851,6 +839,19 @@ function init()
                controlspec = pct_control_off, formatter = fmt_percent,
                action = engine.cutoff_offness_pct_all}
 
+    params:add{type = "control", id = "raw_osc_cutoff", name = "raw osc cutoff",
+               controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
+               action = function(v)
+                 engine.raw_osc_cutoff_all(v)
+    end}
+    params:set("raw_osc_cutoff", 8000)
+
+    params:add{type = "control", id = "phased_cutoff", name = "phased cutoff",
+               controlspec = ControlSpec.FREQ, formatter = Formatters.format_freq,
+               action = function(v)
+                 engine.phased_cutoff_all(v)
+    end}
+    params:set("phased_cutoff", 20000)
 
     -- --------------------------------
     params:add_separator("internal_trimmers", "internal trimmers")
