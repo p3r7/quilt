@@ -158,10 +158,10 @@ var g_mod1 = d_mod1;
 			// CMOS-derived waveforms
 			var crossing, counter, crossingSliced, counterSliced;
 			// computed modulation index, associated phaser signals
-			var phaseOld, phaseSlicedOld;
-			var phaseAm, phaseRm, phase;
-			var phaseSlicedAm, phaseSlicedRm, phaseSliced;
-		var pm;
+			var phaseAm, phaseRm, phaseRmFade, phaseAmFade, phase;
+			var amToRm, amToRmSliced;
+			var phaseSlicedAm, phaseSlicedRm, phaseSlicedRmFade, phaseSlicedAmFade, phaseSliced;
+			var pm;
 
 			vibrato = SinOsc.kr(vib_rate, 0, vib_depth);
 
@@ -210,40 +210,41 @@ var g_mod1 = d_mod1;
 
 			mixed = Select.ar(counterSliced, [signal1, signal2, signal3, signal4]) * 2;
 
-		    phaseOld = SinOsc.ar(npolarRotFreq2, counter * 2pi/mod, (npolarProj*2).clip(0,1));
-			phaseOld = if(mod % 2 == 0, { phaseOld }, { (1.0 - phaseOld) });
-
-			phaseSlicedOld = SinOsc.ar(npolarRotFreqSliced2, counterSliced * 2pi/mod, npolarProjSliced);
-			phaseSlicedOld = if(mod % 2 == 0, { phaseSlicedOld }, { (1.0 - phaseSlicedOld) });
-
 			phaseRm = SinOsc.ar(npolarRotFreq2, counter * 2pi/mod, 1);
-			phaseAm = if(mod % 2 == 0, { phaseRm }, { (1.0 - phaseRm) }) / 2;
+		    //phaseAm = if(mod % 2 == 0, { phaseRm }, { (1.0 - phaseRm) }) / 2;
 			// NB: edge-case for when mod1 is 2
 			// this works, but idk why using `if(mod == 2, ...)` doesn't
 			phaseRm = Select.ar((mod-2).clip(0, 1),
 				[ SinOsc.ar(npolarRotFreq2, counter * 2pi/(mod-1), 1),
 					phaseRm ]);
-			//phase = XFade2.ar(
-			//	phaseAm * npolarProj.clip(0, 0.5) * 2,
-			//	phaseRm,
-			//	(npolarProj * 2) - 1);
+			// NB: phaseAmFade crossfades between a DC of 1 and phaseAm according to npolarProj
+			// the critical part is the 3rd argument of phaseRmFade
+			// i don't fully understand how it works...
+		    phaseRmFade = SinOsc.ar(npolarRotFreq2, counter * 2pi/mod, (npolarProj*2).clip(0,1));
+			phaseAmFade = if(mod % 2 == 0, { phaseRmFade }, { (1.0 - phaseRmFade) });
 
-		phase = (phaseOld * (1 - ( (npolarProj-0.5).clip(0, 0.5) * 2) ))
-		+ ((-1) * (phaseRm * 2 * (npolarProj-0.5).clip(0, 0.5) * 2))
-		;
+			// x-fade between phaseAmFade and phaseRm, according to npolarProj (only for 0.5-1)
+			// we could have used XFade2.ar instead...
+		    amToRm = (npolarProj-0.5).clip(0, 0.5) * 2;
+			phase = (phaseAmFade * (1 - amToRm))
+			+ (phaseRm * 2 * amToRm * (-1))
+			;
 
 			phaseSlicedRm = SinOsc.ar(npolarRotFreqSliced2, counterSliced * 2pi/mod, 1);
-			phaseSlicedAm = if(mod % 2 == 0, { phaseSlicedRm }, { (1.0 - phaseSlicedRm) }) / 2;
-			phaseSliced = XFade2.ar(
-				phaseSlicedAm * npolarProjSliced.clip(0, 0.5) * 2,
-				phaseSlicedRm,
-				(npolarProjSliced * 2) - 1);
+			//phaseSlicedAm = if(mod % 2 == 0, { phaseSlicedRm }, { (1.0 - phaseSlicedRm) }) / 2;
+			phaseSlicedRmFade = SinOsc.ar(npolarRotFreqSliced2, counterSliced * 2pi/mod, npolarProjSliced);
+			phaseSlicedAmFade = if(mod % 2 == 0, { phaseSlicedRmFade }, { (1.0 - phaseSlicedRmFade) });
+
+			amToRmSliced = (npolarProjSliced-0.5).clip(0, 0.5) * 2;
+			phaseSliced = (phaseSlicedAmFade * (1 - amToRmSliced))
+			+ (phaseSlicedRm * 2 * amToRmSliced * (-1))
+			;
 
 			// phased = mixed
 			// * ((npolarProj*2).linlin(0, 1, 1, phase))
 			// * ((npolarProjSliced*2).linlin(0, 1, 1, phaseSliced));
 
-			phased = mixed * phase * phaseSlicedOld;
+			phased = mixed * phase * phaseSliced;
 
 			phased =  MoogFF.ar(in: phased, freq: phased_cutoff);
 
@@ -284,9 +285,8 @@ var g_mod1 = d_mod1;
 		([
 			phased, mixed/2,
 			// phaseSlicedRm, phaseSlicedAm,
-			//phaseOld,
 			phase/4,
-			phaseRm, phaseOld,
+			phaseRm,
 			// crossingSliced, counterSliced/mod,
 			// crossing, counter/mod,
 			signal1, signal2, signal3,
