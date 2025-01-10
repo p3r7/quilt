@@ -550,7 +550,7 @@ function init()
                recompute_effective_freq(freq, mod) --NB: deprecated soon
                local FREQ = waveutils.compensated_freq(STATE, freq, mod)
 
-               print(freq .. " -> " ..FREQ)
+               -- print(freq .. " -> " ..FREQ)
 
                engine.freq_curr(FREQ)
                voices[STATE.curr_voice_id].hz = FREQ
@@ -606,7 +606,7 @@ function init()
                recompute_effective_freq(freq, mod) --NB: deprecated soon
                local FREQ = waveutils.compensated_freq(STATE, freq, mod)
 
-               print(freq .. " -> " ..FREQ)
+               -- print(freq .. " -> " ..FREQ)
 
                engine.freq_curr(FREQ)
                voices[STATE.curr_voice_id].hz = FREQ
