@@ -1278,6 +1278,158 @@ function draw_slicing_wave(x, w, y, a, sign, dir)
   screen.level(15)
 end
 
+function draw_slicing_waves(half_waves, x_offset, half_wave_w, abscissa, a)
+  local sign = 1
+
+  for i=1,half_waves do
+    draw_slicing_wave(x_offset + (i-1) * half_wave_w, half_wave_w, abscissa, a, sign)
+    sign = sign * -1
+  end
+
+  for i=1,half_waves do
+    draw_slicing_wave(x_offset - (i-1) * half_wave_w, half_wave_w, abscissa, a, -sign, -1)
+    sign = sign * -1
+  end
+end
+
+function draw_mod_waves(mod, sync_ratio, freq, x_offset, half_wave_w, abscissa, a)
+  screen.aa(1)
+
+  local sign = 1
+  screen.move(x_offset, abscissa)
+
+  local mod_sliced = mod * sync_ratio
+  local half_waves = mod
+  local segment_w = half_wave_w / sync_ratio
+
+  for i=1,half_waves do
+    for j=1,sync_ratio do
+      -- local wi = util.clamp(mod1((i-1) * j, #WAVESHAPES), 1, #WAVESHAPES)
+      local wi = mod1(i + (j - 1), #WAVESHAPES)
+      local waveshape = params:string("index"..wi)
+      local mod1_a = linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), params:get("npolar_rot_amount"))
+      local mod2_a =  linlin(0, 1, 1, amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1), params:get("npolar_rot_amount_sliced"))
+      local pole_a = a * mod1_a * mod2_a
+
+      -- AM
+      local am_pole_a = a * linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), 0.5)
+      draw_mod_wave(x_offset + (i-1) * half_wave_w, segment_w,
+                    abscissa, am_pole_a,
+                    sign, 1,
+                    j, sync_ratio,
+                    0.5, params:get("npolar_rot_amount_sliced"),
+                    params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
+      screen.stroke()
+
+      -- RM
+      local rm_pole_a = a * linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), 1)
+      draw_mod_wave(x_offset + (i-1) * half_wave_w, segment_w,
+                    abscissa, rm_pole_a,
+                    sign, 1,
+                    j, sync_ratio,
+                    1, params:get("npolar_rot_amount_sliced"),
+                    params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
+      screen.stroke()
+
+    end
+    sign = sign * -1
+  end
+
+  -- FIXME: this one dosn't work...
+  sign = 1
+  screen.move(x_offset, abscissa)
+  for i=1,half_waves do
+    for j=1,sync_ratio do
+      -- local wi = math.floor(mod1(i * j, #WAVESHAPES))
+      local wi = mod1(i + (j - 1), #WAVESHAPES)
+      local waveshape = params:string("index"..wi)
+      local mod1_a = linlin(0, 1, 1, -amp_for_pole(i, mod, rot_angle, 1, -1), params:get("npolar_rot_amount"))
+      local mod2_a =  linlin(0, 1, 1, -amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1, -1), params:get("npolar_rot_amount_sliced"))
+      local pole_a = a * mod1_a * mod2_a
+
+      -- AM
+      local am_pole_a = a * linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), 0.5)
+      draw_mod_wave(x_offset + (i-1) * half_wave_w, segment_w,
+                    abscissa, am_pole_a,
+                    sign, 1,
+                    j, sync_ratio,
+                    0.5, params:get("npolar_rot_amount_sliced"),
+                    params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
+      screen.stroke()
+
+      -- RM
+      local rm_pole_a = a * linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), 1)
+      draw_mod_wave(x_offset + (i-1) * half_wave_w, segment_w,
+                    abscissa, rm_pole_a,
+                    sign, 1,
+                    j, sync_ratio,
+                    1, params:get("npolar_rot_amount_sliced"),
+                    params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
+      screen.stroke()
+    end
+    sign = sign * -1
+  end
+
+  screen.aa(0)
+end
+
+function draw_signal_waves(mod, sync_ratio, freq, x_offset, half_wave_w, abscissa, a)
+  screen.aa(1)
+
+  local sign = 1
+  screen.move(x_offset, abscissa)
+
+  local mod_sliced = mod * sync_ratio
+  local half_waves = mod
+  local segment_w = half_wave_w / sync_ratio
+
+  for i=1,half_waves do
+    for j=1,sync_ratio do
+      -- local wi = util.clamp(mod1((i-1) * j, #WAVESHAPES), 1, #WAVESHAPES)
+      local wi = mod1(i + (j - 1), #WAVESHAPES)
+      local waveshape = params:string("index"..wi)
+      local mod1_a = linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), params:get("npolar_rot_amount"))
+      local mod2_a =  linlin(0, 1, 1, amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1), params:get("npolar_rot_amount_sliced"))
+      local pole_a = a * mod1_a * mod2_a
+
+      draw_wave(waveshape,
+                x_offset + (i-1) * half_wave_w, segment_w,
+                abscissa, pole_a,
+                sign, 1,
+                j, sync_ratio,
+                params:get("npolar_rot_amount"), params:get("npolar_rot_amount_sliced"),
+                params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
+    end
+    sign = sign * -1
+  end
+  screen.stroke()
+
+  sign = 1
+  screen.move(x_offset, abscissa)
+  for i=1,half_waves do
+    for j=1,sync_ratio do
+      -- local wi = math.floor(mod1(i * j, #WAVESHAPES))
+      local wi = mod1(i + (j - 1), #WAVESHAPES)
+      local waveshape = params:string("index"..wi)
+      local mod1_a = linlin(0, 1, 1, -amp_for_pole(i, mod, rot_angle, 1, -1), params:get("npolar_rot_amount"))
+      local mod2_a =  linlin(0, 1, 1, -amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1, -1), params:get("npolar_rot_amount_sliced"))
+      local pole_a = a * mod1_a * mod2_a
+
+      draw_wave(waveshape,
+                x_offset - (i-1) * half_wave_w, segment_w,
+                abscissa, pole_a,
+                -sign, -1,
+                j, sync_ratio,
+                params:get("npolar_rot_amount"), params:get("npolar_rot_amount_sliced"),
+                params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
+    end
+    sign = sign * -1
+  end
+  screen.stroke()
+
+  screen.aa(0)
+end
+
 function draw_poles(x, y, radius, speed, rot_angle, is_active)
   local l = is_active and 15 or 5
   screen.level(0)
@@ -1317,6 +1469,7 @@ function draw_poles(x, y, radius, speed, rot_angle, is_active)
     screen.stroke()
   end
 end
+
 
 function draw_mod_poles(x, y, radius, nb_poles, amount, rot_angle, speed)
   screen.level(0)
@@ -1388,11 +1541,10 @@ function draw_mod_poles(x, y, radius, nb_poles, amount, rot_angle, speed)
     screen.line(x + r2 * cos(angle2) * -1, y + r2 * sin(angle2))
     screen.stroke()
   end
-
-
 end
 
 function draw_scope_grid(screen_w, screen_h)
+  screen.aa(0)
   screen.level(5)
   screen.move(screen_w/2, 0)
   screen.line(screen_w/2, screen_h)
@@ -1402,6 +1554,7 @@ function draw_scope_grid(screen_w, screen_h)
   screen.line(screen_w, screen_h/2)
   screen.stroke()
 
+  screen.aa(1)
   screen.level(15)
 end
 
@@ -1499,10 +1652,8 @@ function draw_page_main()
 
   local sync_ratio = params:get("sync_ratio") -- nb of sub-segments
   local mod = params:get("mod")
-  local mod_sliced = mod * sync_ratio
   local half_waves = mod
   local half_wave_w = util.round(screen_w/(half_waves*2))
-  local segment_w = half_wave_w / sync_ratio
   local abscissa = screen_h/2
   local a = abscissa * 3/6
 
@@ -1517,88 +1668,10 @@ function draw_page_main()
   -- poles - mod osc
   draw_modulators()
 
-  screen.aa(0)
   draw_scope_grid(screen_w, screen_h)
-
-  -- mod wave
-  for i=1,half_waves do
-    draw_slicing_wave(x_offset + (i-1) * half_wave_w, half_wave_w, abscissa, a, sign)
-    sign = sign * -1
-  end
-
-  for i=1,half_waves do
-    draw_slicing_wave(x_offset - (i-1) * half_wave_w, half_wave_w, abscissa, a, -sign, -1)
-    sign = sign * -1
-  end
-
-  screen.aa(1)
-
-  -- signal wave
-  sign = 1
-  screen.move(x_offset, abscissa)
-  for i=1,half_waves do
-    for j=1,sync_ratio do
-      -- local wi = util.clamp(mod1((i-1) * j, #WAVESHAPES), 1, #WAVESHAPES)
-      local wi = mod1(i + (j - 1), #WAVESHAPES)
-      local waveshape = params:string("index"..wi)
-      local mod1_a = linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), params:get("npolar_rot_amount"))
-      local mod2_a =  linlin(0, 1, 1, amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1), params:get("npolar_rot_amount_sliced"))
-      local pole_a = a * mod1_a * mod2_a
-
-      -- AM
-      -- local am_pole_a = a * linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), 0.5)
-      -- draw_mod_wave(x_offset + (i-1) * half_wave_w, segment_w,
-      --               abscissa, am_pole_a,
-      --               sign, 1,
-      --               j, sync_ratio,
-      --               0.5, params:get("npolar_rot_amount_sliced"),
-      --               params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
-      -- screen.stroke()
-
-      -- RM
-      -- local rm_pole_a = a * linlin(0, 1, 1, amp_for_pole(i, mod, rot_angle, 1), 1)
-      -- draw_mod_wave(x_offset + (i-1) * half_wave_w, segment_w,
-      --               abscissa, rm_pole_a,
-      --               sign, 1,
-      --               j, sync_ratio,
-      --               1, params:get("npolar_rot_amount_sliced"),
-      --               params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
-      -- screen.stroke()
-
-      draw_wave(waveshape,
-                x_offset + (i-1) * half_wave_w, segment_w,
-                abscissa, pole_a,
-                sign, 1,
-                j, sync_ratio,
-                params:get("npolar_rot_amount"), params:get("npolar_rot_amount_sliced"),
-                params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
-    end
-    sign = sign * -1
-  end
-  screen.stroke()
-
-  sign = 1
-  screen.move(x_offset, abscissa)
-  for i=1,half_waves do
-    for j=1,sync_ratio do
-      -- local wi = math.floor(mod1(i * j, #WAVESHAPES))
-      local wi = mod1(i + (j - 1), #WAVESHAPES)
-      local waveshape = params:string("index"..wi)
-      local mod1_a = linlin(0, 1, 1, -amp_for_pole(i, mod, rot_angle, 1, -1), params:get("npolar_rot_amount"))
-      local mod2_a =  linlin(0, 1, 1, -amp_for_pole(i*j, mod_sliced, rot_angle_sliced, 1, -1), params:get("npolar_rot_amount_sliced"))
-      local pole_a = a * mod1_a * mod2_a
-
-      draw_wave(waveshape,
-                x_offset - (i-1) * half_wave_w, segment_w,
-                abscissa, pole_a,
-                -sign, -1,
-                j, sync_ratio,
-                params:get("npolar_rot_amount"), params:get("npolar_rot_amount_sliced"),
-                params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
-    end
-    sign = sign * -1
-  end
-  screen.stroke()
+  draw_slicing_waves(half_waves, x_offset, half_wave_w, abscissa, a)
+  -- draw_mod_waves(mod, sync_ratio, freq, x_offset, half_wave_w, abscissa, a)
+  draw_signal_waves(mod, sync_ratio, freq, x_offset, half_wave_w, abscissa, a)
 
   -- -- metrics
   -- screen.move(0, screen_h)
@@ -1615,17 +1688,17 @@ function draw_aenv()
   local ad_t  = params:get("amp_attack") + params:get("amp_decay")
   local adr_t = ad_t + params:get("amp_release")
 
-  local a_w = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval,
-                          0, ENVGRAPH_T_MAX,
-                          params:get("amp_attack"))
-  local d_w = util.explin(ENV_DECAY.minval,  ENV_DECAY.maxval,
-                          0, ENVGRAPH_T_MAX,
-                          params:get("amp_decay"))
-  local r_w = util.explin(ENV_RELEASE.minval,  ENV_RELEASE.maxval,
-                          0, ENVGRAPH_T_MAX,
-                          params:get("amp_release"))
+    local a_w = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval,
+                            0, ENVGRAPH_T_MAX,
+                            params:get("amp_attack"))
+    local d_w = util.explin(ENV_DECAY.minval,  ENV_DECAY.maxval,
+                            0, ENVGRAPH_T_MAX,
+                            params:get("amp_decay"))
+    local r_w = util.explin(ENV_RELEASE.minval,  ENV_RELEASE.maxval,
+                            0, ENVGRAPH_T_MAX,
+                            params:get("amp_release"))
 
-  for voice_id=1,NB_VOICES do
+    for voice_id=1,NB_VOICES do
     local y = 64 - ENV_GRAPH_H - 10 - voice_id
 
     local aenv_travel = voices[voice_id].aenv_travel
