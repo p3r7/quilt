@@ -6,7 +6,7 @@ Engine_Quilt : CroneEngine {
 		var server = Crone.server;
 		var def;
 
-		~sawBuffer = Buffer.alloc(server, 4096, 1);
+		~sawBuffer = Buffer.alloc(server, 512, 1);
 		~sawValues = (0..(~sawBuffer.numFrames-1)).collect { |i| (i / (~sawBuffer.numFrames-1)) * 2 - 1 };
 		~sawBuffer.loadCollection(~sawValues);
 
