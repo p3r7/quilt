@@ -14,7 +14,7 @@ var win, freqSlider, ampSlider, freqLabel, ampLabel,
 var ly, lh = 30;
 var def;
 
-var d_amp_offset = 0.5;
+var d_amp_offset = 1;
 var d_freq = 200;
 var d_mod1 = 2;
 var d_mod2 = 1;
