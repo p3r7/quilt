@@ -210,7 +210,7 @@ var g_mod1 = d_mod1;
 
 			mixed = Select.ar(counterSliced, [signal1, signal2, signal3, signal4]) * 2;
 
-			phaseOld = SinOsc.ar(npolarRotFreq2, counter * 2pi/mod, npolarProj);
+		    phaseOld = SinOsc.ar(npolarRotFreq2, counter * 2pi/mod, (npolarProj*2).clip(0,1));
 			phaseOld = if(mod % 2 == 0, { phaseOld }, { (1.0 - phaseOld) });
 
 			phaseSlicedOld = SinOsc.ar(npolarRotFreqSliced2, counterSliced * 2pi/mod, npolarProjSliced);
@@ -223,10 +223,14 @@ var g_mod1 = d_mod1;
 			phaseRm = Select.ar((mod-2).clip(0, 1),
 				[ SinOsc.ar(npolarRotFreq2, counter * 2pi/(mod-1), 1),
 					phaseRm ]);
-			phase = XFade2.ar(
-				phaseAm * npolarProj.clip(0, 0.5) * 2,
-				phaseRm,
-				(npolarProj * 2) - 1);
+			//phase = XFade2.ar(
+			//	phaseAm * npolarProj.clip(0, 0.5) * 2,
+			//	phaseRm,
+			//	(npolarProj * 2) - 1);
+
+		phase = (phaseOld * (1 - ( (npolarProj-0.5).clip(0, 0.5) * 2) ))
+		+ ((-1) * (phaseRm * 2 * (npolarProj-0.5).clip(0, 0.5) * 2))
+		;
 
 			phaseSlicedRm = SinOsc.ar(npolarRotFreqSliced2, counterSliced * 2pi/mod, 1);
 			phaseSlicedAm = if(mod % 2 == 0, { phaseSlicedRm }, { (1.0 - phaseSlicedRm) }) / 2;
@@ -239,7 +243,7 @@ var g_mod1 = d_mod1;
 			// * ((npolarProj*2).linlin(0, 1, 1, phase))
 			// * ((npolarProjSliced*2).linlin(0, 1, 1, phaseSliced));
 
-			phased = mixed * phaseOld * phaseSlicedOld;
+			phased = mixed * phase * phaseSlicedOld;
 
 			phased =  MoogFF.ar(in: phased, freq: phased_cutoff);
 
@@ -280,8 +284,9 @@ var g_mod1 = d_mod1;
 		([
 			phased, mixed/2,
 			// phaseSlicedRm, phaseSlicedAm,
-			phaseOld,
-			phase, phaseRm, phaseAm,
+			//phaseOld,
+			phase/4,
+			phaseRm, phaseOld,
 			// crossingSliced, counterSliced/mod,
 			// crossing, counter/mod,
 			signal1, signal2, signal3,
