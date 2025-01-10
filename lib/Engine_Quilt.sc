@@ -124,7 +124,9 @@ Engine_Quilt : CroneEngine {
 			// CMOS-derived waveforms
 			var crossing, counter, crossingSliced, counterSliced;
 			// computed modulation index, associated phaser signals
-			var modphase, phase, phase2, phaseSliced, phaseSliced2;
+			var phaseAm, phaseRm, phaseRmFade, phaseAmFade, phase;
+			var amToRm, amToRmSliced;
+			var phaseSlicedAm, phaseSlicedRm, phaseSlicedRmFade, phaseSlicedAmFade, phaseSliced;
 			var pm;
 
 			vibrato = SinOsc.kr(vib_rate, 0, vib_depth);
@@ -166,23 +168,48 @@ Engine_Quilt : CroneEngine {
 			crossingSliced = Osc.ar(~sawBuffer, freq2 * syncRatio * 2, pi + (pm + syncPhase).linlin(-1, 1, -2pi, 2pi)) * 0.25;
 			counterSliced = PulseCount.ar(crossingSliced) % mod;
 
-			modphase = if(mod % 2 == 0, { mod - 1 }, { mod });
-
 			// REVIEW: use wavetable instead?
 			signal1 = Select.ar(index1, [sin, triangle, saw, square]);// * amp1 * SinOsc.kr(npolarRotFreq, 0.0);
 			signal2 = Select.ar(index2, [sin, triangle, saw, square]);// * amp2 * SinOsc.kr(npolarRotFreq, 2pi / mod);
 			signal3 = Select.ar(index3, [sin, triangle, saw, square]);// * amp3 * SinOsc.kr(npolarRotFreq, 2 * 2pi / mod);
 			signal4 = Select.ar(index4, [sin, triangle, saw, square]);// * amp4 * SinOsc.kr(npolarRotFreq, 3 * 2pi / mod);
 
-			mixed = Select.ar(counterSliced, [signal1, signal2, signal3, signal4]);
+			mixed = Select.ar(counterSliced, [signal1, signal2, signal3, signal4]) * 2;
 
-			phase = SinOsc.ar(npolarRotFreq2, counter * 2pi/modphase, npolarProj);
-			phase2 = if(mod % 2 == 0, { phase }, { (1.0 - phase) });
+			phaseRm = SinOsc.ar(npolarRotFreq2, counter * 2pi/mod, 1);
+		    //phaseAm = if(mod % 2 == 0, { phaseRm }, { (1.0 - phaseRm) }) / 2;
+			// NB: edge-case for when mod1 is 2
+			// this works, but idk why using `if(mod == 2, ...)` doesn't
+			phaseRm = Select.ar((mod-2).clip(0, 1),
+				[ SinOsc.ar(npolarRotFreq2, counter * 2pi/(mod-1), 1),
+					phaseRm ]);
+			// NB: phaseAmFade crossfades between a DC of 1 and phaseAm according to npolarProj
+			// the critical part is the 3rd argument of phaseRmFade
+			// i don't fully understand how it works...
+		    phaseRmFade = SinOsc.ar(npolarRotFreq2, counter * 2pi/mod, (npolarProj*2).clip(0,1));
+			phaseAmFade = if(mod % 2 == 0, { phaseRmFade }, { (1.0 - phaseRmFade) });
 
-			phaseSliced = SinOsc.ar(npolarRotFreqSliced2, counterSliced * 2pi/modphase, npolarProjSliced);
-			phaseSliced2 = if(mod % 2 == 0, { phaseSliced }, { (1.0 - phaseSliced) });
+			// x-fade between phaseAmFade and phaseRm, according to npolarProj (only for 0.5-1)
+			// we could have used XFade2.ar instead...
+		    amToRm = (npolarProj-0.5).clip(0, 0.5) * 2;
+			phase = (phaseAmFade * (1 - amToRm))
+			+ (phaseRm * 2 * amToRm * (-1))
+			;
 
-			phased = mixed * phase2 * phaseSliced2;
+			phaseSlicedRm = SinOsc.ar(npolarRotFreqSliced2, counterSliced * 2pi/mod, 1);
+			//phaseSlicedAm = if(mod % 2 == 0, { phaseSlicedRm }, { (1.0 - phaseSlicedRm) }) / 2;
+			// phaseSlicedRm = Select.ar(((mod*counterSliced)-2).clip(0, 1),
+			// 	[ SinOsc.ar(npolarRotFreqSliced2, counterSliced * 2pi/(mod-1), 1),
+			// 		phaseSlicedRm ]);
+			phaseSlicedRmFade = SinOsc.ar(npolarRotFreqSliced2, counterSliced * 2pi/mod, npolarProjSliced);
+			phaseSlicedAmFade = if(mod % 2 == 0, { phaseSlicedRmFade }, { (1.0 - phaseSlicedRmFade) });
+
+			amToRmSliced = (npolarProjSliced-0.5).clip(0, 0.5) * 2;
+			phaseSliced = (phaseSlicedAmFade * (1 - amToRmSliced))
+			+ (phaseSlicedRm * 2 * amToRmSliced * (-1))
+			;
+
+			phased = mixed * phase * phaseSliced;
 
 			phased =  MoogFF.ar(in: phased, freq: phased_cutoff);
 
