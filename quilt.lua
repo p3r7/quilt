@@ -988,11 +988,7 @@ function nsin(x)
 end
 
 function nsaw(x)
-  if x < 0 then
-    return linlin(0, 1, 1, -1, -x)
-  end
-  return linlin(0, 1, 1, -1, x)
-  -- return (1 - (x + 0.25) % 1) * 2 - 1
+  return util.linlin(0, 1, 0, 1, x) * 2
 end
 
 function ntri(x)
@@ -1255,7 +1251,12 @@ function draw_wave(waveshape,
     local rm_visual_a = util.explin(0.000001, 2500, 4, 10, rm_visual_speed)
     rm_visual_a = 4
 
-    screen.line(i, y + nwave(waveshape, nx) * a * sign * -1 + sign * mod_a * rm_visual_a)
+    local ny = nwave(waveshape, nx)
+    if waveshape == "SAW" and (sign == -1)then
+      ny = 1 - ny
+    end
+
+    screen.line(i, y + ny * a * sign * -1 + sign * mod_a * rm_visual_a)
   end
 end
 
