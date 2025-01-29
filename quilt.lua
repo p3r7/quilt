@@ -989,7 +989,11 @@ function nsin(x)
 end
 
 function nsaw(x)
-  return util.linlin(0, 1, 0, 1, x) * 2
+  x = x * 2
+  if x > 1 then
+    x = x - 1
+  end
+  return util.linlin(0, 1, 0, 1, x)
 end
 
 function ntri(x)
@@ -1204,11 +1208,15 @@ function draw_wave(waveshape,
                    y, a,
                    sign, dir,
                    segment, nb_segments,
+                   phase,
                    mod1_a, mod2_a,
                    mod1hz, mod2hz)
 
   if dir == nil then
     dir = 1
+  end
+  if phase == nil then
+    phase = 0
   end
   if segment == nil then
     segment = 1
@@ -1237,6 +1245,13 @@ function draw_wave(waveshape,
       -- print(linlin(x0, xn, startn, endn, i))
     end
     local nx = math.abs(linlin(x0, xn, startn, endn, i))
+
+    nx = nx + phase
+    if nx < 0 then
+      nx = nx + 1
+    elseif nx > 1 then
+      nx = nx - 1
+    end
 
     local mod_a = 0
     if mod1hz then
@@ -1397,6 +1412,7 @@ function draw_signal_waves(mod, sync_ratio, freq, x_offset, half_wave_w, absciss
                 abscissa, pole_a,
                 sign, 1,
                 j, sync_ratio,
+                params:get("sync_phase")/360,
                 params:get("npolar_rot_amount"), params:get("npolar_rot_amount_sliced"),
                 params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
     end
@@ -1420,6 +1436,7 @@ function draw_signal_waves(mod, sync_ratio, freq, x_offset, half_wave_w, absciss
                 abscissa, pole_a,
                 -sign, -1,
                 j, sync_ratio,
+                params:get("sync_phase")/360,
                 params:get("npolar_rot_amount"), params:get("npolar_rot_amount_sliced"),
                 params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
     end
