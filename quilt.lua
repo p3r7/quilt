@@ -88,6 +88,7 @@ PITCH_COMPENSATION_SYNC = false
 
 rot_angle = 0
 rot_angle_sliced = 0
+rot_angle_phased = 0
 
 has_bleached = false
 
@@ -1128,6 +1129,12 @@ function rot_tick()
     rot_angle_sliced = rot_angle_sliced - 1
   end
 
+  local tick_phased = (1 / ROT_FPS) * params:get("sync_pm_f")
+  rot_angle_phased = rot_angle_phased + tick_phased
+  while rot_angle_phased > 1 do
+    rot_angle_phased = rot_angle_phased - 1
+  end
+
   for i=1,NB_VOICES do
     local tick_v = (1 / ROT_FPS) * voices[i].hz
     voices[i].rot_angle = voices[i].rot_angle + tick_v
@@ -1398,6 +1405,9 @@ function draw_signal_waves(mod, sync_ratio, freq, x_offset, half_wave_w, absciss
   local half_waves = mod
   local segment_w = half_wave_w / sync_ratio
 
+  local phase = params:get("sync_phase")/360 + amp_for_pole(1, 2, rot_angle_phased, params:get("sync_pm_a"))
+  -- print(rot_angle_phased)
+
   for i=1,half_waves do
     for j=1,sync_ratio do
       -- local wi = util.clamp(mod1((i-1) * j, #WAVESHAPES), 1, #WAVESHAPES)
@@ -1412,7 +1422,7 @@ function draw_signal_waves(mod, sync_ratio, freq, x_offset, half_wave_w, absciss
                 abscissa, pole_a,
                 sign, 1,
                 j, sync_ratio,
-                params:get("sync_phase")/360,
+                phase,
                 params:get("npolar_rot_amount"), params:get("npolar_rot_amount_sliced"),
                 params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
     end
@@ -1436,7 +1446,7 @@ function draw_signal_waves(mod, sync_ratio, freq, x_offset, half_wave_w, absciss
                 abscissa, pole_a,
                 -sign, -1,
                 j, sync_ratio,
-                params:get("sync_phase")/360,
+                phase,
                 params:get("npolar_rot_amount"), params:get("npolar_rot_amount_sliced"),
                 params:get("npolar_rot_freq") / freq, params:get("npolar_rot_freq_sliced") / freq)
     end
