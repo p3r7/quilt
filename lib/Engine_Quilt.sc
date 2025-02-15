@@ -69,6 +69,7 @@ Engine_Quilt : CroneEngine {
 			mod = 3,
 			syncRatio = 1,
 			syncPhase = 0.0,
+			syncPhaseSliced = 0.0,
 			npolarProj = 1.0,
 			npolarRotFreq = 10,
 			npolarRotFreq_sag = 0.1,
@@ -171,9 +172,8 @@ Engine_Quilt : CroneEngine {
 			crossing = Osc.ar(~sawBuffer, freq2 * 2, pi + (pm + syncPhase).linlin(-1, 1, -2pi, 2pi)) * 0.25;
 			counter = PulseCount.ar(crossing) % mod;
 
-			crossingSliced = Osc.ar(~sawBuffer, freq2 * syncRatio * 2, pi + (pm + syncPhase).linlin(-1, 1, -2pi, 2pi)) * 0.25;
+			crossingSliced = Osc.ar(~sawBuffer, freq2 * syncRatio * 2, pi + (pm + syncPhaseSliced).linlin(-1, 1, -2pi, 2pi)) * 0.25;
 			counterSliced = PulseCount.ar(crossingSliced) % mod;
-
 
 			mixed = Select.ar(counterSliced, [signal1, signal2, signal3, signal4]) * 2;
 
@@ -283,6 +283,7 @@ Engine_Quilt : CroneEngine {
 			\mod, 3,
 			\syncRatio, 1,
 			\syncPhase, 0.0,
+			\syncPhaseSliced, 0.0,
 			\npolarProj, 1.0,
 			\npolarRotFreq, 10,
 			\npolarRotFreq_sag, 0.1,

@@ -670,6 +670,13 @@ function init()
                engine.syncPhase_all(v/360)
                screen_dirty = true
   end}
+  params:add{type = "number", id = "sync_phase_sliced", name = "sync phase",
+             min = -360, max = 360, default = -180,
+             formatter = fmt_phase,
+             action = function(v)
+               engine.syncPhaseSliced_all(v/360)
+               screen_dirty = true
+  end}
   params:add{type = "control", id = "sync_pm_f", name = "PM freq",
              controlspec = ControlSpec.WIDEFREQ, formatter = Formatters.format_freq,
              action = engine.pmFreq_all}
