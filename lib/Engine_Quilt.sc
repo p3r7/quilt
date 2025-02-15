@@ -111,7 +111,7 @@ Engine_Quilt : CroneEngine {
 			var npolarRotFreqSagLfo, npolarRotFreq2;
 			var npolarRotFreqSlicedSagLfo, npolarRotFreqSliced2;
 			// basic waveforms
-			var sin, saw, triangle, square;
+			var sin, saw, tri, sqr;
 			// looked-up waveforms (by index)
 			var signal1, signal2, signal3, signal4;
 			// amp enveloppe
@@ -155,10 +155,16 @@ Engine_Quilt : CroneEngine {
 
 			hzTrack = freq2.cpsmidi / 12;
 
-			sin = SinOsc.ar(freq2) * 0.5; // FIX: needed to half amp for sine
-			saw = MoogFF.ar(in: Saw.ar(freq2), freq: raw_osc_cutoff);
-			triangle = MoogFF.ar(in: LFTri.ar(freq2), freq: raw_osc_cutoff);
-			square = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: raw_osc_cutoff);
+			sin = SinOsc.ar(freq2) * 0.5;                         // NB: needed to half amp for sine
+			saw = MoogFF.ar(in: Saw.ar(freq2),                     freq: raw_osc_cutoff, gain: 0.0);
+			tri = MoogFF.ar(in: LFTri.ar(freq2),                   freq: raw_osc_cutoff, gain: 0.0);
+			sqr = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: raw_osc_cutoff, gain: 0.0);
+
+			// REVIEW: use wavetable instead?
+			signal1 = Select.ar(index1, [sin, tri, saw, sqr]);// * amp1 * SinOsc.kr(npolarRotFreq, 0.0);
+			signal2 = Select.ar(index2, [sin, tri, saw, sqr]);// * amp2 * SinOsc.kr(npolarRotFreq, 2pi / mod);
+			signal3 = Select.ar(index3, [sin, tri, saw, sqr]);// * amp3 * SinOsc.kr(npolarRotFreq, 2 * 2pi / mod);
+			signal4 = Select.ar(index4, [sin, tri, saw, sqr]);// * amp4 * SinOsc.kr(npolarRotFreq, 3 * 2pi / mod);
 
 			pm = SinOsc.ar(pmFreq) * pmAmt;
 
@@ -168,11 +174,6 @@ Engine_Quilt : CroneEngine {
 			crossingSliced = Osc.ar(~sawBuffer, freq2 * syncRatio * 2, pi + (pm + syncPhase).linlin(-1, 1, -2pi, 2pi)) * 0.25;
 			counterSliced = PulseCount.ar(crossingSliced) % mod;
 
-			// REVIEW: use wavetable instead?
-			signal1 = Select.ar(index1, [sin, triangle, saw, square]);// * amp1 * SinOsc.kr(npolarRotFreq, 0.0);
-			signal2 = Select.ar(index2, [sin, triangle, saw, square]);// * amp2 * SinOsc.kr(npolarRotFreq, 2pi / mod);
-			signal3 = Select.ar(index3, [sin, triangle, saw, square]);// * amp3 * SinOsc.kr(npolarRotFreq, 2 * 2pi / mod);
-			signal4 = Select.ar(index4, [sin, triangle, saw, square]);// * amp4 * SinOsc.kr(npolarRotFreq, 3 * 2pi / mod);
 
 			mixed = Select.ar(counterSliced, [signal1, signal2, signal3, signal4]) * 2;
 
@@ -211,7 +212,7 @@ Engine_Quilt : CroneEngine {
 
 			phased = mixed * phase * phaseSliced;
 
-			phased =  MoogFF.ar(in: phased, freq: phased_cutoff);
+			phased =  MoogFF.ar(in: phased, freq: phased_cutoff, gain: 0.0);
 
 			env = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 0);
 			// NB: enveloppes for when a voice is dynamically paired
@@ -245,9 +246,10 @@ Engine_Quilt : CroneEngine {
 			// 	relaxTime: 0.1 // fast release
 			// );
 
-			compressed = saturated;
+			compressed = saturated * 0.5;
 
 			Out.ar(0, Pan2.ar(compressed, pan * (1 - (pan_lfo_amount * SinOsc.kr(pan_lfo_freq, pan_lfo_phase, 0.5, 0.5)))));
+
 		}).add;
 
 		def.send(server);
