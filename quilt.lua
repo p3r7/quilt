@@ -391,7 +391,7 @@ function init()
   -- midi
 
   params:add{type = "number", id = "midi_device", name = "MIDI Device",
-             min = 1, max = 4, default = 2,
+             min = 1, max = 4, default = 1,
              action = function(v)
                if m ~= nil then
                  m.event = nil
