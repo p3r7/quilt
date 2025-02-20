@@ -64,9 +64,11 @@ function voiceutils.voice_on(STATE, voice_id, note_num, vel, note_id, leader_id,
   STATE.voices[voice_id].aa = params:get("amp_attack")
   STATE.voices[voice_id].ad = params:get("amp_decay")
   STATE.voices[voice_id].as = params:get("amp_sustain")
+  STATE.voices[voice_id].ar = params:get("amp_release")
   STATE.voices[voice_id].fa = params:get("filter_attack")
   STATE.voices[voice_id].fd = params:get("filter_decay")
   STATE.voices[voice_id].fs = params:get("filter_sustain")
+  STATE.voices[voice_id].fr = params:get("filter_release")
   STATE.voices[voice_id].note_num = note_num
   STATE.voices[voice_id].base_hz = hz
   STATE.voices[voice_id].hz = hz -- TODO: use `waveutils.compensated_freq`

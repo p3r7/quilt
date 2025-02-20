@@ -1718,38 +1718,39 @@ end
 
 function draw_aenv()
   screen.aa(0)
-
-  local ad_t  = params:get("amp_attack") + params:get("amp_decay")
-  local adr_t = ad_t + params:get("amp_release")
+  for voice_id=1,NB_VOICES do
+    local a = STATE.voices[voice_id].aa
+    local d = STATE.voices[voice_id].ad
+    local s = STATE.voices[voice_id].as
+    local r = STATE.voices[voice_id].ar
 
     local a_w = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval,
                             0, ENVGRAPH_T_MAX,
-                            params:get("amp_attack"))
+                            a)
     local d_w = util.explin(ENV_DECAY.minval,  ENV_DECAY.maxval,
                             0, ENVGRAPH_T_MAX,
-                            params:get("amp_decay"))
+                            d)
     local r_w = util.explin(ENV_RELEASE.minval,  ENV_RELEASE.maxval,
                             0, ENVGRAPH_T_MAX,
-                            params:get("amp_release"))
+                            r)
 
-    for voice_id=1,NB_VOICES do
-    local y = 64 - ENV_GRAPH_H - 10 - voice_id
+local y = 64 - ENV_GRAPH_H - 10 - voice_id
 
-    local aenv_travel = voices[voice_id].aenv_travel
-    if aenv_travel < (ad_t - 0.1) then
-      local x = util.linlin(0, ad_t,
+local aenv_travel = voices[voice_id].aenv_travel
+    if aenv_travel < (a + d - 0.1) then
+      local x = util.linlin(0, a + d,
                             0, (a_w + d_w) * ENV_GRAPH_W,
                             aenv_travel)
       screen.pixel(ENV_GRAPH_X + x, y)
       screen.stroke()
-    elseif math.abs(aenv_travel - ad_t) <= 0.1 then
+    elseif math.abs(aenv_travel - (a + d)) <= 0.1 then
       local x1 = (a_w + d_w) * ENV_GRAPH_W
       local x2 = ENV_GRAPH_W - r_w * ENV_GRAPH_W
       screen.move(ENV_GRAPH_X + x1, y)
       screen.line(ENV_GRAPH_X + x2, y)
       screen.stroke()
-    elseif aenv_travel < adr_t then
-      local x = util.linlin(0, adr_t,
+    elseif aenv_travel < a + d + r then
+      local x = util.linlin(0, a + d + r,
                             ENV_GRAPH_W - r_w * ENV_GRAPH_W, ENV_GRAPH_W,
                             aenv_travel)
       screen.pixel(ENV_GRAPH_X + x, y)
@@ -1821,42 +1822,43 @@ end
 function draw_fenv()
   screen.aa(0)
 
-  local ad_t  = params:get("filter_attack") + params:get("filter_decay")
-  local adr_t = ad_t + params:get("filter_release")
-
-  local a_w = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval,
-                          0, ENVGRAPH_T_MAX,
-                          params:get("filter_attack"))
-  local d_w = util.explin(ENV_DECAY.minval,  ENV_DECAY.maxval,
-                          0, ENVGRAPH_T_MAX,
-                          params:get("filter_decay"))
-  local r_w = util.explin(ENV_RELEASE.minval,  ENV_RELEASE.maxval,
-                          0, ENVGRAPH_T_MAX,
-                          params:get("filter_release"))
-
   for voice_id=1,NB_VOICES do
-    local y = 64 - ENV_GRAPH_H - 10 - voice_id
+    local a = STATE.voices[voice_id].fa
+    local d = STATE.voices[voice_id].fd
+    local s = STATE.voices[voice_id].fs
+    local r = STATE.voices[voice_id].fr
 
-    local fenv_travel = voices[voice_id].fenv_travel
-    if fenv_travel < (ad_t - 0.1) then
-      local x = util.linlin(0, ad_t,
+    local a_w = util.explin(ENV_ATTACK.minval, ENV_ATTACK.maxval,
+                            0, ENVGRAPH_T_MAX,
+                            a)
+    local d_w = util.explin(ENV_DECAY.minval,  ENV_DECAY.maxval,
+                            0, ENVGRAPH_T_MAX,
+                            d)
+    local r_w = util.explin(ENV_RELEASE.minval,  ENV_RELEASE.maxval,
+                            0, ENVGRAPH_T_MAX,
+                            r)
+
+local y = 64 - ENV_GRAPH_H - 10 - voice_id
+
+local fenv_travel = voices[voice_id].fenv_travel
+    if fenv_travel < (a + d - 0.1) then
+      local x = util.linlin(0, a + d,
                             0, (a_w + d_w) * ENV_GRAPH_W,
                             fenv_travel)
       screen.pixel(ENV_GRAPH_X + x, y)
       screen.stroke()
-    elseif math.abs(fenv_travel - ad_t) <= 0.1 then
+    elseif math.abs(fenv_travel - (a + d)) <= 0.1 then
       local x1 = (a_w + d_w) * ENV_GRAPH_W
       local x2 = ENV_GRAPH_W - r_w * ENV_GRAPH_W
       screen.move(ENV_GRAPH_X + x1, y)
       screen.line(ENV_GRAPH_X + x2, y)
       screen.stroke()
-    elseif fenv_travel < adr_t then
-      local x = util.linlin(0, adr_t,
+    elseif fenv_travel < a + d + r then
+      local x = util.linlin(0, a + d + r,
                             ENV_GRAPH_W - r_w * ENV_GRAPH_W, ENV_GRAPH_W,
                             fenv_travel)
       screen.pixel(ENV_GRAPH_X + x, y)
       screen.stroke()
-      -- TODO
     end
   end
 
