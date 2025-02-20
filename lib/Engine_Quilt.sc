@@ -6,7 +6,8 @@ Engine_Quilt : CroneEngine {
 		var server = Crone.server;
 		var def;
 
-		~sawBuffer = Buffer.alloc(server, 256, 1);
+		// ~sawBuffer = Buffer.alloc(server, 256, 1);
+		~sawBuffer = Buffer.alloc(server, 64, 1);
 		~sawValues = (0..(~sawBuffer.numFrames-1)).collect { |i| (i / (~sawBuffer.numFrames-1)) * 2 - 1 };
 		~sawBuffer.loadCollection(~sawValues);
 
@@ -156,10 +157,14 @@ Engine_Quilt : CroneEngine {
 
 			hzTrack = freq2.cpsmidi / 12;
 
+			// sin = SinOsc.ar(freq2) * 0.5;                         // NB: needed to half amp for sine
+			// saw = MoogFF.ar(in: Saw.ar(freq2),                     freq: raw_osc_cutoff, gain: 0.0);
+			// tri = MoogFF.ar(in: LFTri.ar(freq2),                   freq: raw_osc_cutoff, gain: 0.0);
+			// sqr = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: raw_osc_cutoff, gain: 0.0);
 			sin = SinOsc.ar(freq2) * 0.5;                         // NB: needed to half amp for sine
-			saw = MoogFF.ar(in: Saw.ar(freq2),                     freq: raw_osc_cutoff, gain: 0.0);
-			tri = MoogFF.ar(in: LFTri.ar(freq2),                   freq: raw_osc_cutoff, gain: 0.0);
-			sqr = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: raw_osc_cutoff, gain: 0.0);
+			saw = Saw.ar(freq2);
+			tri = LFTri.ar(freq2);
+			sqr = Pulse.ar(freq: freq2, width: 0.5);
 
 			// REVIEW: use wavetable instead?
 			signal1 = Select.ar(index1, [sin, tri, saw, sqr]);// * amp1 * SinOsc.kr(npolarRotFreq, 0.0);
@@ -212,7 +217,7 @@ Engine_Quilt : CroneEngine {
 
 			phased = mixed * phase * phaseSliced;
 
-			phased =  MoogFF.ar(in: phased, freq: phased_cutoff, gain: 0.0);
+			// phased =  MoogFF.ar(in: phased, freq: phased_cutoff, gain: 0.0);
 
 			env = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 0);
 			// NB: enveloppes for when a voice is dynamically paired
