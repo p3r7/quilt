@@ -60,6 +60,7 @@ end
 S_LVL_MOD = 2
 
 CS_MIDLOWFREQ = ControlSpec.new(25, 1000, 'exp', 0, 440, "Hz")
+CS_GLIDE = ControlSpec.new(0, 5, "lin", 0, 0, "s")
 
 -- FIXME: still baseline volume even when amp sustain is at 0?!
 local DEFAULT_A = 0.55
@@ -188,7 +189,24 @@ end
 -- -------------------------------------------------------------------------
 -- controllers
 
+bleached_last_clock = {}
+bleached_skipped_evt_count = 0
+
 local function bleached_cc_main(row, pot, v, precision)
+  local pot_id = row * 10 + pot
+  local now = os.clock()
+
+  -- NB: bleached midi send rate is a tad too aggressive for our complex engine
+  -- we filter out value updates too close between each other
+  if bleached_last_clock[pot_id] ~= nil and now - bleached_last_clock[pot_id] < 0.005 then
+    bleached_skipped_evt_count = bleached_skipped_evt_count + 1
+    if bleached_skipped_evt_count ~= 0 and bleached_skipped_evt_count % 10 == 0 then
+      print("bleached: skipped "..bleached_skipped_evt_count)
+    end
+    return
+  end
+  bleached_last_clock[pot_id] = now
+
   if row == 1 and pot == 1 then
     -- params:set("freq", util.linexp(0, precision, CS_MIDLOWFREQ.minval, CS_MIDLOWFREQ.maxval, v))
 
@@ -557,6 +575,13 @@ function init()
                voices[STATE.curr_voice_id].hz = FREQ
   end}
   -- params:set("freq", BASE_FREQ)
+
+  params:add{type = "control", id = "glide", name = "glide",
+             controlspec = CS_GLIDE, formatter = Formatters.format_secs,
+             action = function(v)
+               engine.glide_all(v)
+  end}
+
 
   -- params:add{type = "control", id = "freq_sag", name = "freq sag",
   --            controlspec = pct_control_off, formatter = fmt_percent,

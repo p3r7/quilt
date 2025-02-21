@@ -52,6 +52,7 @@ Engine_Quilt : CroneEngine {
 			gate_pair_out = 0,
 			vel = 0.5,
 			freq = 200,
+			glide = 0.0,
 			raw_osc_cutoff = 10000,
 			phased_cutoff = 10000,
 			freq_sag = 0.1,
@@ -106,6 +107,7 @@ Engine_Quilt : CroneEngine {
 			// saturation/compression
 			sat_threshold = 0.5;
 
+			var controlLag = 0.1, controlLagSlow = 0.005;
 			// frequencies
 			var semitoneDiff, hzTrack, fsemitoneDiff;
 			var vibrato, freqSagLfo, freq2;
@@ -131,7 +133,27 @@ Engine_Quilt : CroneEngine {
 			var phaseSlicedAm, phaseSlicedRm, phaseSlicedRmFade, phaseSlicedAmFade, phaseSliced;
 			var pm;
 
-			vibrato = SinOsc.kr(vib_rate, 0, vib_depth);
+			glide = Lag.kr(glide, controlLag);
+			freq = Lag.kr(freq, glide);
+			syncPhase = Lag.kr(syncPhase, controlLagSlow);
+			syncPhaseSliced = Lag.kr(syncPhaseSliced, controlLagSlow);
+			npolarProj = Lag.kr(npolarProj, controlLagSlow);
+			npolarRotFreq = Lag.kr(npolarRotFreq, controlLag);
+			npolarProjSliced = Lag.kr(npolarProjSliced, controlLagSlow);
+			npolarRotFreqSliced = Lag.kr(npolarRotFreqSliced, controlLag);
+			pmFreq = Lag.kr(pmFreq, controlLag);
+			pmAmt = Lag.kr(pmAmt, controlLagSlow);
+			cutoff  = Lag.kr(cutoff, controlLag);
+			resonance  = Lag.kr(resonance, controlLagSlow);
+			raw_osc_cutoff  = Lag.kr(raw_osc_cutoff, controlLag);
+			phased_cutoff  = Lag.kr(phased_cutoff, controlLag);
+			pan  = Lag.kr(pan, controlLagSlow);
+			pitch_offness_pct  = Lag.kr(pitch_offness_pct, controlLag);
+			cutoff_offness_pct  = Lag.kr(cutoff_offness_pct, controlLag);
+			sat_threshold  = Lag.kr(sat_threshold, controlLagSlow);
+
+			// vibrato = SinOsc.kr(vib_rate, 0, vib_depth);
+			vibrato = 0;
 
 			// NB: this sounds meh and is heavy in processing...
 			// TODO: implement standard vibrrato w/ slightly detuned voices
@@ -157,14 +179,14 @@ Engine_Quilt : CroneEngine {
 
 			hzTrack = freq2.cpsmidi / 12;
 
-			// sin = SinOsc.ar(freq2) * 0.5;                         // NB: needed to half amp for sine
-			// saw = MoogFF.ar(in: Saw.ar(freq2),                     freq: raw_osc_cutoff, gain: 0.0);
-			// tri = MoogFF.ar(in: LFTri.ar(freq2),                   freq: raw_osc_cutoff, gain: 0.0);
-			// sqr = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: raw_osc_cutoff, gain: 0.0);
 			sin = SinOsc.ar(freq2) * 0.5;                         // NB: needed to half amp for sine
-			saw = Saw.ar(freq2);
-			tri = LFTri.ar(freq2);
-			sqr = Pulse.ar(freq: freq2, width: 0.5);
+			saw = MoogFF.ar(in: Saw.ar(freq2),                     freq: raw_osc_cutoff, gain: 0.0);
+			tri = MoogFF.ar(in: LFTri.ar(freq2),                   freq: raw_osc_cutoff, gain: 0.0);
+			sqr = MoogFF.ar(in: Pulse.ar(freq: freq2, width: 0.5), freq: raw_osc_cutoff, gain: 0.0);
+			// sin = SinOsc.ar(freq2) * 0.5;                         // NB: needed to half amp for sine
+			// saw = Saw.ar(freq2);
+			// tri = LFTri.ar(freq2);
+			// sqr = Pulse.ar(freq: freq2, width: 0.5);
 
 			// REVIEW: use wavetable instead?
 			signal1 = Select.ar(index1, [sin, tri, saw, sqr]);// * amp1 * SinOsc.kr(npolarRotFreq, 0.0);
@@ -217,7 +239,7 @@ Engine_Quilt : CroneEngine {
 
 			phased = mixed * phase * phaseSliced;
 
-			// phased =  MoogFF.ar(in: phased, freq: phased_cutoff, gain: 0.0);
+			phased =  MoogFF.ar(in: phased, freq: phased_cutoff, gain: 0.0);
 
 			env = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 0);
 			// NB: enveloppes for when a voice is dynamically paired
@@ -264,6 +286,7 @@ Engine_Quilt : CroneEngine {
 
 		params = Dictionary.newFrom([
 			\freq, 80,
+			\glide, 0.0,
 			\freq_sag, 0.1,
 			\vel, 0.5,
 			\vib_rate, 5,
